@@ -18,7 +18,7 @@ function harness({navigator={},Meter=MicMeter,saved={}}={}){
  const synth={speaking:false,getVoices(){return [];},cancel(){},resume(){},speak(u){spoken=u;}};
  const context={words,lessons,getLesson,themeColors,LESSON_KEY,readProgress,writeProgress,emptyProgress,scoreWord,sample,totalScore,MicMeter:Meter,IPadSpeechInput,isAppleTouchDevice,migrateProfile,profileSelections,ModelAudio:class{stop(){}play(id,onEnd){spoken={id};onEnd?.();}},SpeechInput:class extends NativeSpeechInput{constructor(r,busy){super(r,busy,{setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){}});}},Intl,document,window:{navigator,SpeechRecognition:Rec,speechSynthesis:synth,matchMedia(){return {matches:true};},addEventListener(){},scrollTo(){}},SpeechSynthesisUtterance:class{constructor(text){this.text=text;}},localStorage:{getItem(k){return storage.get(k)??null;},setItem(k,v){storage.set(k,v);if(k.includes('-lesson'))stored=JSON.parse(v);}},Date:class extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}},setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){},setInterval(fn){interval=fn;return 1;},clearInterval(){interval=null;},confirm(){return true;},console};
  vm.createContext(context);const source=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'');
- vm.runInContext(source+'\nthis.api={selectLesson,testMicrophone,record,cancelRecording,startChallenge,updateTimer,updateCountdown,answerChallenge,finishChallenge,challengeSetup,historyHtml,speak,list,displayHeard,setReady:()=>micReady=true,setMode,listenQuick,applyMeaning,state:()=>({challenge,data,active,lesson,words}),seedHistory:(h)=>data.history[0]=h};',context);
+ vm.runInContext(source+'\nthis.api={stats,showPracticeScore,selectLesson,testMicrophone,record,cancelRecording,startChallenge,updateTimer,updateCountdown,answerChallenge,finishChallenge,challengeSetup,historyHtml,speak,list,displayHeard,setReady:()=>micReady=true,setMode,listenQuick,applyMeaning,state:()=>({challenge,data,active,lesson,words}),seedHistory:(h)=>data.history[0]=h};',context);
  return {api:context.api,nodes,recognition:()=>recognizer,advance(ms){now+=ms;interval?.();},stored:()=>stored,spoken:()=>spoken,start(){context.api.setReady();context.api.startChallenge();now+=3000;context.api.updateCountdown();},flush(){timeouts.splice(0).forEach(fn=>fn());}};
 }
 test('three-second countdown does not consume challenge time',()=>{const h=harness();h.api.setReady();h.api.startChallenge();assert.equal(h.api.state().challenge.phase,'countdown');h.advance(2000);assert.equal(h.api.state().challenge.phase,'countdown');assert.equal(h.nodes.get('#countdown-number').textContent,'1');h.advance(1000);assert.equal(h.api.state().challenge.phase,'running');h.advance(59000);assert.equal(h.api.state().challenge.phase,'running');h.advance(1000);assert.equal(h.api.state().challenge.phase,'done');});
@@ -92,4 +92,25 @@ test('rush ends at each lesson length, including 28, 29 and 33 words',()=>{
   assert.equal(c.phase,'done');assert.equal(c.index,c.items.length);
   assert.match(h.nodes.get('#challenge-content').innerHTML,new RegExp('語正解 / '+c.items.length+'語'));
  }
+});
+
+test('mastery crown needs every word at 90, and sprint crown needs a best of 100',()=>{
+ const h=harness();h.api.selectLesson(5);const {data,words}=h.api.state();
+ data.bestScores=Object.fromEntries(words.map(w=>[w.id,90]));data.bestScores[words[0].id]=89;data.challengeBest=99;h.api.stats();
+ assert.doesNotMatch(h.nodes.get('#mastered').innerHTML,/achievement-crown/);
+ assert.doesNotMatch(h.nodes.get('#best').innerHTML,/achievement-crown/);
+ data.bestScores[words[0].id]=90;h.api.stats();
+ assert.match(h.nodes.get('#mastered').innerHTML,/全単語マスター/);
+ assert.doesNotMatch(h.nodes.get('#best').innerHTML,/achievement-crown/);
+ data.challengeBest=100;h.api.stats();assert.match(h.nodes.get('#best').innerHTML,/発音スプリント100点達成/);
+});
+test('lesson tab crowns survive reload, stay separate by lesson and clear on reset',()=>{
+ const complete={history:{},challenges:[],bestScores:Object.fromEntries(getLesson(1).words.map(w=>[w.id,90]))};
+ const sprint={history:{},challenges:[],bestScores:{},challengeBest:100};
+ const h=harness({saved:{'pronunciation-lab-lesson1-v1':JSON.stringify(complete),'pronunciation-lab-lesson2-v1':JSON.stringify(sprint)}});
+ const tab=id=>h.nodes.get('#lesson-tabs').innerHTML.match(new RegExp('data-lesson="'+id+'"[\\s\\S]*?</button>'))[0];
+ assert.match(tab(1),/全単語マスター/);assert.doesNotMatch(tab(1),/発音スプリント100点達成/);
+ assert.match(tab(2),/発音スプリント100点達成/);assert.doesNotMatch(tab(2),/全単語マスター/);
+ assert.doesNotMatch(tab(7),/achievement-crown/);
+ h.api.selectLesson(1);h.nodes.get('#reset').onclick();assert.doesNotMatch(tab(1),/achievement-crown/);assert.match(tab(2),/発音スプリント100点達成/);
 });
