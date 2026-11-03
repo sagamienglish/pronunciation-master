@@ -78,3 +78,5 @@ body{transition:background-color .2s,color .2s}
 .help-details summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:12px;font-weight:600;color:var(--green)}
 .help-details summary:before{content:'＋';margin-right:8px}.help-details[open] summary:before{content:'−'}
 @media(max-width:480px){.topbar{padding-inline:12px}.brand{font-size:12px}.help-video{padding:0 8px;font-size:10px;gap:3px}.help-duration{display:none}#help-dialog{padding:15px}#help-dialog h2{font-size:19px}}
+
+.history:empty,.card-result:empty{display:none}
