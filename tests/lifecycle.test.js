@@ -83,7 +83,7 @@ test('lesson scores remain independent across switches and survive reload',()=>{
  const reload=harness({saved:{[LESSON_KEY]:'6'}});assert.equal(reload.api.state().lesson.id,6);
  assert.equal((reload.nodes.get('#word-list').innerHTML.match(/class="word-card"/g)||[]).length,29);
 });
-test('rush ends at each lesson length, including both 29 and 33 words',()=>{
+test('rush ends at each lesson length, including 28, 29 and 33 words',()=>{
  for(const lessonId of [1,5,6]){
   const h=harness();h.api.selectLesson(lessonId);h.api.setMode('quick');h.start();const c=h.api.state().challenge;
   assert.equal(c.items.length,getLesson(lessonId).words.length);

@@ -158,7 +158,7 @@ const vocabulary = {
  ['fiber','繊維','名詞',2],
  ['process','加工する','動詞',2],
  ['business card','名刺','名詞',2],
- ['Mfuwe Village','エンフエ村','名詞',3],
+ null, // Removed entry: keep the ID vacant to preserve saved scores and audio paths.
  ['Zambia','ザンビア','名詞',3],
  ['giraffe','キリン','名詞',3],
  ['villager','村民','名詞',3],
@@ -206,8 +206,10 @@ const vocabulary = {
 export const themeColors={orange:'#e7893f',purple:'#b378ac',green:'#67b891'};
 export const lessons = [...Object.keys(vocabulary).map(Number),7].sort((a,b)=>a-b).map(id=>({
  id, name:`Lesson ${id}`, theme:['orange','purple','green'][(id-1)%3],
- words:id===7?lesson7:vocabulary[id].map(([en,ja,pos,part,say],index)=>({
-  id:index,en,ja,pos,part,say:say||en,audio:`lesson-${id}/${index}`
- }))
+ words:id===7?lesson7:vocabulary[id].flatMap((entry,index)=>{
+  if(!entry)return [];
+  const [en,ja,pos,part,say]=entry;
+  return [{id:index,en,ja,pos,part,say:say||en,audio:`lesson-${id}/${index}`}];
+ })
 }));
 export function getLesson(id){return lessons.find(lesson=>lesson.id===Number(id));}
