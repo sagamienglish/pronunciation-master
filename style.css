@@ -32,7 +32,7 @@
 
 /* Colors sampled from the textbook lesson-number ribbons. */
 body[data-theme="orange"]{--accent:#e7893f;--green:#a54f0c;--ink:#492d1b;--muted:#7d6c5c;--line:#ead8c9;--paper:#fff7ef;--surface:#fffdfa;--soft:#f9e8d8;--soft-strong:#f3d4b8;--lime:#ffe2c3;--overlay:#492d1bf2}
-body[data-theme="purple"]{--accent:#b378ac;--green:#86517f;--ink:#422b43;--muted:#7a687b;--line:#e6d6e5;--paper:#fbf5fb;--surface:#fffaff;--soft:#f0e2ef;--soft-strong:#e5cce2;--lime:#f2d6ee;--overlay:#422b43f2}
+body[data-theme="purple"]{--accent:#b378ac;--green:#86517f;--ink:#302133;--muted:#7a687b;--line:#e6d6e5;--paper:#fbf5fb;--surface:#fffaff;--soft:#f0e2ef;--soft-strong:#e5cce2;--lime:#f2d6ee;--overlay:#422b43f2}
 body[data-theme="green"]{--accent:#67b891;--green:#286d52;--ink:#1d4436;--muted:#63796c;--line:#d3e5da;--paper:#f1faf5;--surface:#fcfffd;--soft:#e0f1e7;--soft-strong:#c2e5d3;--lime:#d2f1df;--overlay:#1d4436f2}
 body{transition:background-color .2s,color .2s}
 .topbar{border-top:3px solid var(--accent)}
