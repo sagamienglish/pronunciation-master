@@ -1,3 +1,4 @@
+import {certificateRank} from '../dist/awards.js';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import fs from 'node:fs';
@@ -16,7 +17,7 @@ function harness({navigator={},Meter=MicMeter,saved={}}={}){
  const document={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];},addEventListener(){},createElement(){return element();},body:element()};
  class Rec{constructor(){recognizer=this;}start(){}stop(){this.onend?.();}abort(){this.onend?.();}}
  const synth={speaking:false,getVoices(){return [];},cancel(){},resume(){},speak(u){spoken=u;}};
- const context={words,lessons,getLesson,themeColors,LESSON_KEY,readProgress,writeProgress,emptyProgress,scoreWord,sample,totalScore,MicMeter:Meter,IPadSpeechInput,isAppleTouchDevice,migrateProfile,profileSelections,ModelAudio:class{stop(){}play(id,onEnd){spoken={id};onEnd?.();}},SpeechInput:class extends NativeSpeechInput{constructor(r,busy){super(r,busy,{setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){}});}},Intl,document,window:{navigator,SpeechRecognition:Rec,speechSynthesis:synth,matchMedia(){return {matches:true};},addEventListener(){},scrollTo(){}},SpeechSynthesisUtterance:class{constructor(text){this.text=text;}},localStorage:{getItem(k){return storage.get(k)??null;},setItem(k,v){storage.set(k,v);if(k.includes('-lesson'))stored=JSON.parse(v);}},Date:class extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}},setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){},setInterval(fn){interval=fn;return 1;},clearInterval(){interval=null;},confirm(){return true;},console};
+ const context={certificateRank,words,lessons,getLesson,themeColors,LESSON_KEY,readProgress,writeProgress,emptyProgress,scoreWord,sample,totalScore,MicMeter:Meter,IPadSpeechInput,isAppleTouchDevice,migrateProfile,profileSelections,ModelAudio:class{stop(){}play(id,onEnd){spoken={id};onEnd?.();}},SpeechInput:class extends NativeSpeechInput{constructor(r,busy){super(r,busy,{setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){}});}},Intl,document,window:{navigator,SpeechRecognition:Rec,speechSynthesis:synth,matchMedia(){return {matches:true};},addEventListener(){},scrollTo(){}},SpeechSynthesisUtterance:class{constructor(text){this.text=text;}},localStorage:{getItem(k){return storage.get(k)??null;},setItem(k,v){storage.set(k,v);if(k.includes('-lesson'))stored=JSON.parse(v);}},Date:class extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}},setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){},setInterval(fn){interval=fn;return 1;},clearInterval(){interval=null;},confirm(){return true;},console};
  vm.createContext(context);const source=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'');
  vm.runInContext(source+'\nthis.api={stats,showPracticeScore,openChallengeHistory,renderChallengeHistory,selectLesson,testMicrophone,record,cancelRecording,startChallenge,updateTimer,updateCountdown,answerChallenge,finishChallenge,challengeSetup,historyHtml,speak,list,displayHeard,setReady:()=>micReady=true,setMode,listenQuick,applyMeaning,state:()=>({challenge,data,active,lesson,words}),seedHistory:(h)=>data.history[0]=h};',context);
  return {api:context.api,nodes,recognition:()=>recognizer,advance(ms){now+=ms;interval?.();},stored:()=>stored,spoken:()=>spoken,start(){context.api.setReady();context.api.startChallenge();now+=3000;context.api.updateCountdown();},flush(){timeouts.splice(0).forEach(fn=>fn());}};
@@ -29,7 +30,7 @@ test('wall-clock expiry ignores late speech and only saves one result',()=>{cons
 test('network failure cancels round without storing a challenge result',()=>{const h=harness();h.start();h.api.answerChallenge(0);h.recognition().onerror({error:'network'});h.recognition().onend();assert.equal(h.api.state().challenge,null);assert.equal(h.api.state().data.challenges.length,0);assert.match(h.nodes.get('#challenge-content').innerHTML,/チャレンジを中止/);});
 test('history shows the latest five scores in chronological order',()=>{const h=harness();h.api.seedHistory([20,40,60,75,80,100].map(score=>({score})));const html=h.api.historyHtml(words[0]);assert.doesNotMatch(html,/>20</);assert.match(html,/>40<.*>60<.*>75<.*>80<.*>100</);assert.equal((html.match(/class="arrow"/g)||[]).length,4);});
 test('model audio uses normal playback speed',()=>{const h=harness();h.api.speak(words[0],1);assert.equal(h.spoken().id,0);});
-test('certificate contains ten scores, identity fields and Japan timestamp',()=>{const h=harness();h.start();h.advance(61000);const html=h.nodes.get('#challenge-content').innerHTML;assert.match(html,/発音スプリント 認定証/);assert.match(html,/2026\/11\/03 18:01:04/);assert.match(html,/日本時間/);assert.match(html,/cert-name/);assert.match(html,/cert-group/);assert.equal((html.match(/class="cert-row"/g)||[]).length,10);});
+test('certificate contains ten scores, identity fields and Japan timestamp',()=>{const h=harness();h.start();h.advance(61000);const html=h.nodes.get('#challenge-content').innerHTML;assert.match(html,/発音スプリント 認定証/);assert.match(html,/2026\/11\/03 18:01:04/);assert.doesNotMatch(html,/実施日時|日本時間/);assert.match(html,/チャレンジャー/);assert.match(html,/cert-name/);assert.match(html,/cert-group/);assert.equal((html.match(/class="cert-row"/g)||[]).length,10);});
 test('microphone RMS distinguishes silence from actual input samples',()=>{assert.equal(rmsLevel(new Uint8Array(512).fill(128)),0);assert.ok(rmsLevel(new Uint8Array(512).fill(150))>.018);});
 
 test('all vocabulary is rendered without page controls',()=>{const h=harness();assert.equal((h.nodes.get('#word-list').innerHTML.match(/class="word-card"/g)||[]).length,32);assert.doesNotMatch(h.nodes.get('#word-list').innerHTML,/data-action="slow"/);});
@@ -121,4 +122,15 @@ test('rush rounds are recorded once, include zero and remain separate from sprin
  assert.equal(h.api.state().data.quickChallenges.length,1);assert.equal(h.api.state().data.quickChallenges[0].score,0);assert.equal(h.api.state().data.challenges.length,0);
  h.api.openChallengeHistory('quick');assert.match(h.nodes.get('#history-content').innerHTML,/0<\/strong> 語/);assert.match(h.nodes.get('#history-content').innerHTML,/2026\/11\/03/);
  h.api.selectLesson(1);assert.equal(h.api.state().data.quickChallenges.length,0);h.api.selectLesson(7);assert.equal(h.api.state().data.quickChallenges.length,1);
+});
+
+test('rush certificate shows the current round rank, keeps date and omits redundant labels',()=>{
+ for(const [score,name] of [[3,'チャレンジャー'],[4,'ルーキー'],[7,'エキスパート'],[10,'マスター'],[13,'レジェンド']]){
+  const h=harness();h.api.setMode('quick');h.start();const {challenge:c,data}=h.api.state();data.quickBest=20;c.correct=score;c.items.slice(0,score).forEach((w,i)=>c.results[i]={score:100,heard:w.say});h.api.finishChallenge();
+  const html=h.nodes.get('#challenge-content').innerHTML;
+  assert.match(html,new RegExp(`称号：${name}`));assert.match(html,/BEST 20/);assert.match(html,/2026\/11\/03 18:00:03/);assert.doesNotMatch(html,/実施日時|日本時間|日本語を見て、/);
+ }
+});
+test('sprint certificate rank is based on this round rather than the saved best',()=>{
+ const h=harness();h.start();const {challenge:c,data}=h.api.state();data.challengeBest=100;c.results=c.items.map(w=>({score:50,heard:w.say}));h.api.finishChallenge();const html=h.nodes.get('#challenge-content').innerHTML;assert.match(html,/称号：ルーキー/);assert.match(html,/BEST 100/);assert.doesNotMatch(html,/称号：レジェンド/);
 });
