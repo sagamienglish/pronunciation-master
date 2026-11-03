@@ -1,5 +1,5 @@
 import {scoreWord,sample,totalScore} from './vocabulary.js';
-import {lessons,getLesson,themeColors} from './lessons.js';
+import {lessons,getLesson,themeColors} from './lessons.js?v=9';
 import {LESSON_KEY,readProgress,writeProgress,emptyProgress} from './progress.js';
 import {MicMeter} from './audio.js';
 import {SpeechInput} from './speech-input.js';
