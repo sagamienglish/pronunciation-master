@@ -1,5 +1,5 @@
 import {scoreWord,sample,totalScore} from './vocabulary.js';
-import {lessons,getLesson} from './lessons.js';
+import {lessons,getLesson,themeColors} from './lessons.js';
 import {LESSON_KEY,readProgress,writeProgress,emptyProgress} from './progress.js';
 import {MicMeter} from './audio.js';
 import {SpeechInput} from './speech-input.js';
@@ -150,9 +150,11 @@ function quickVictory(w){
 
 function renderLessons(){
  $('#lesson-tabs').style.gridTemplateColumns=`repeat(${lessons.length},minmax(0,1fr))`;
- $('#lesson-tabs').innerHTML=lessons.map(item=>`<button type="button" data-lesson="${item.id}" class="${item.id===lesson.id?'selected':''}" aria-pressed="${item.id===lesson.id}"><span>Lesson</span> ${item.id}</button>`).join('');
+ $('#lesson-tabs').innerHTML=lessons.map(item=>`<button type="button" data-lesson="${item.id}" style="--tab-color:${themeColors[item.theme]}" class="${item.id===lesson.id?'selected':''}" aria-pressed="${item.id===lesson.id}"><span>Lesson</span> ${item.id}</button>`).join('');
 }
 function renderLessonDetails(){
+ document.body.setAttribute('data-theme',lesson.theme);
+ $('meta[name="theme-color"]').setAttribute('content',themeColors[lesson.theme]);
  document.title=`${lesson.name} — Pronunciation Lab`;
  $('#header-tag').textContent=`LESSON ${String(lesson.id).padStart(2,'0')} · VOCABULARY`;
  $('#lesson-footer').textContent=`${lesson.name} · 得点は認識された文字との一致度の目安です`;

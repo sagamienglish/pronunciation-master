@@ -203,8 +203,9 @@ const vocabulary = {
 };
 
 // Add future lessons to vocabulary above; the tabs and counts follow automatically.
+export const themeColors={orange:'#e7893f',purple:'#b378ac',green:'#67b891'};
 export const lessons = [...Object.keys(vocabulary).map(Number),7].sort((a,b)=>a-b).map(id=>({
- id, name:`Lesson ${id}`,
+ id, name:`Lesson ${id}`, theme:['orange','purple','green'][(id-1)%3],
  words:id===7?lesson7:vocabulary[id].map(([en,ja,pos,part,say],index)=>({
   id:index,en,ja,pos,part,say:say||en,audio:`lesson-${id}/${index}`
  }))
