@@ -19,7 +19,7 @@ export function readProgress(storage,lesson,words){
   data.bestScores[w.id]=Math.max(Number.isFinite(n)&&n>=0&&n<=100?n:0,...(data.history[w.id]||[]).map(x=>x.score));
  }
  data.attempts=Number.isSafeInteger(saved.attempts)&&saved.attempts>=0?saved.attempts:Object.values(data.history).reduce((n,h)=>n+h.length,0);
- data.challenges=saved.challenges.filter(x=>x&&Number.isFinite(x.score)&&x.score>=0&&x.score<=100).slice(-50);
+ data.challenges=saved.challenges.filter(x=>x&&Number.isFinite(x.score)&&x.score>=0&&x.score<=100).slice(-50).map(x=>{const record={score:x.score,date:x.date};if(x.score===100&&Number.isFinite(x.elapsedMs)&&x.elapsedMs>=0&&x.elapsedMs<=60000)record.elapsedMs=x.elapsedMs;return record;});
  const n=saved.challengeBest;data.challengeBest=Number.isFinite(n)&&n>=0&&n<=100?n:null;
  for(const c of data.challenges)data.challengeBest=Math.max(data.challengeBest??0,c.score);
  data.quickChallenges=Array.isArray(saved.quickChallenges)?saved.quickChallenges.filter(x=>x&&Number.isInteger(x.score)&&x.score>=0&&x.score<=words.length&&typeof x.date==='string').slice(-50):[];

@@ -134,3 +134,17 @@ test('rush certificate shows the current round rank, keeps date and omits redund
 test('sprint certificate rank is based on this round rather than the saved best',()=>{
  const h=harness();h.start();const {challenge:c,data}=h.api.state();data.challengeBest=100;c.results=c.items.map(w=>({score:50,heard:w.say}));h.api.finishChallenge();const html=h.nodes.get('#challenge-content').innerHTML;assert.match(html,/称号：ルーキー/);assert.match(html,/BEST 100/);assert.doesNotMatch(html,/称号：レジェンド/);
 });
+
+test('perfect sprint time excludes countdown, appears on certificate and history, and survives reload',()=>{
+ const h=harness();h.start();const c=h.api.state().challenge;
+ h.advance(23456);
+ for(let i=0;i<10;i++){h.api.answerChallenge(i);h.recognition().onresult({results:[[{transcript:c.items[i].say}]]});}
+ const stored=h.stored();assert.equal(stored.challenges[0].elapsedMs,23456);assert.match(h.nodes.get('#challenge-content').innerHTML,/cert-time.*23\.5/);
+ h.api.openChallengeHistory('sprint');assert.match(h.nodes.get('#history-content').innerHTML,/100点達成/);assert.match(h.nodes.get('#history-content').innerHTML,/23\.5秒/);
+ const restored=harness({saved:{'pronunciation-lab-lesson7-v1':JSON.stringify(stored)}});restored.api.openChallengeHistory('sprint');assert.match(restored.nodes.get('#history-content').innerHTML,/23\.5秒/);
+});
+test('incomplete sprint and older perfect scores never invent completion times',()=>{
+ const h=harness({saved:{'pronunciation-lab-lesson7-v1':JSON.stringify({history:{},challenges:[{score:100,date:'2026-11-03T09:00:00Z'},{score:50,date:'2026-11-03T09:00:00Z',elapsedMs:1000},{score:100,date:'2026-11-03T09:00:00Z',elapsedMs:-1}]})}});
+ h.start();h.advance(61000);assert.equal(h.stored().challenges.at(-1).elapsedMs,undefined);assert.doesNotMatch(h.nodes.get('#challenge-content').innerHTML,/cert-time/);h.api.openChallengeHistory('sprint');assert.doesNotMatch(h.nodes.get('#history-content').innerHTML,/\d\.\d秒/);
+ h.api.openChallengeHistory('quick');assert.doesNotMatch(h.nodes.get('#history-content').innerHTML,/100点達成/);
+});
