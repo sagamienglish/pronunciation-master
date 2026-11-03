@@ -59,3 +59,12 @@ test('removing a word keeps following words attached to their original history',
  writeProgress(s,5,data);const restored=readProgress(s,5,getLesson(5).words);
  assert.equal(restored.history[19],undefined);assert.equal(restored.history[20][0].heard,'Zambia');assert.equal(restored.bestScores[20],75);
 });
+
+test('rush history migrates safely and retains the latest fifty dated rounds',()=>{
+ const s=storage();const data=emptyProgress();data.quickBest=1;
+ data.quickChallenges=Array.from({length:55},(_,i)=>({score:i%20,date:new Date(Date.UTC(2026,10,3,0,i)).toISOString()}));
+ writeProgress(s,7,data);const restored=readProgress(s,7,getLesson(7).words);
+ assert.equal(restored.quickChallenges.length,50);assert.equal(restored.quickChallenges[0].date,data.quickChallenges[5].date);assert.equal(restored.quickBest,19);
+ const legacy=emptyProgress();delete legacy.quickChallenges;legacy.quickBest=12;s.setItem(progressKey(7),JSON.stringify(legacy));
+ const migrated=readProgress(s,7,getLesson(7).words);assert.deepEqual(migrated.quickChallenges,[]);assert.equal(migrated.quickBest,12);
+});
