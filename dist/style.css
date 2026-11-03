@@ -63,3 +63,18 @@ body{transition:background-color .2s,color .2s}
 .victory-card>b{background:var(--soft-strong);color:var(--green)}
 .victory-halo{background:repeating-conic-gradient(from 0deg,color-mix(in srgb,var(--accent) 20%,transparent) 0 12deg,transparent 12deg 24deg)}
 @media(prefers-reduced-motion:reduce){body{transition:none}}
+
+/* The guide downloads only when the visitor chooses to play it. */
+.help-video{display:inline-flex;align-items:center;justify-content:center;gap:6px;flex-shrink:0;height:40px;padding:0 12px;border-radius:20px;background:var(--soft);font-size:12px;font-weight:600;white-space:nowrap}
+.help-video>span:first-child{font-size:11px;color:var(--green)}
+.help-duration{font-size:10px;color:var(--muted);font-weight:400}
+#help-dialog{width:min(1000px,94vw);padding:22px;max-height:92vh}
+#help-dialog h2{font-size:23px;margin:10px 0 6px;clear:none}
+#help-dialog .eyebrow{padding-top:8px}
+#help-dialog #tutorial-summary{margin:0 0 14px}
+#tutorial-video{display:block;width:100%;aspect-ratio:16/9;background:#211a24;border-radius:10px}
+#help-dialog .tutorial-demo-note{font-size:10px;line-height:1.6;margin:8px 0 12px}
+.help-details{border-top:1px solid var(--line);margin:12px 0 16px;padding-top:8px}
+.help-details summary{min-height:44px;display:flex;align-items:center;cursor:pointer;font-size:12px;font-weight:600;color:var(--green)}
+.help-details summary:before{content:'＋';margin-right:8px}.help-details[open] summary:before{content:'−'}
+@media(max-width:480px){.topbar{padding-inline:12px}.brand{font-size:12px}.help-video{padding:0 8px;font-size:10px;gap:3px}.help-duration{display:none}#help-dialog{padding:15px}#help-dialog h2{font-size:19px}}
