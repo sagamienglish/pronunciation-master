@@ -6,16 +6,16 @@ import {words as oldLesson7} from '../dist/vocabulary.js';
 import {emptyProgress,progressKey,readProgress,writeProgress,PROFILE_KEY} from '../dist/progress.js';
 
 function storage(seed={}){const map=new Map(Object.entries(seed));return {getItem:key=>map.get(key)??null,setItem:(key,value)=>map.set(key,value)};}
-const counts=[[13,12,8],[13,10,9],[10,11,11],[16,7,8],[7,12,9],[12,9,8],[9,11,12],[10,8,12],[9,7,13],[15,9,12]];
+const counts=[[13,12,8],[13,10,9],[10,11,11],[16,7,8],[7,12,9],[12,9,8],[9,11,12],[10,8,10],[9,7,13],[15,9,12]];
 test('ten lessons match the printed Part boundaries and keep unique local IDs',()=>{
  assert.deepEqual(lessons.map(l=>l.id),[1,2,3,4,5,6,7,8,9,10]);
  for(const l of lessons){
   assert.deepEqual([1,2,3].map(part=>l.words.filter(w=>w.part===part).length),counts[l.id-1],l.name);
-  assert.deepEqual(l.words.map(w=>w.id),Array.from({length:l.words.length},(_,id)=>l.id===5&&id>=19?id+1:id));
+  assert.deepEqual(l.words.map(w=>w.id),Array.from({length:l.words.length},(_,id)=>l.id===5&&id>=19?id+1:l.id===8&&id>=22?id+2:id));
   assert.equal(new Set(l.words.map(w=>w.en)).size,l.words.length);
   for(const w of l.words){assert.ok(w.ja&&w.pos&&w.say,w.en);assert.doesNotMatch(w.say,/[.…～/()]/,w.en);}
  }
- assert.equal(lessons.reduce((n,l)=>n+l.words.length,0),312);
+ assert.equal(lessons.reduce((n,l)=>n+l.words.length,0),310);
  assert.equal(getLesson(11),undefined);
 });
 test('Other words is excluded while all regular Part 1 entries in Lesson 6 remain',()=>{
@@ -76,4 +76,10 @@ test('new lessons match the supplied parts, Japanese parts of speech and textboo
  assert.equal(getLesson(8).words.find(w=>w.en==='sustainably').part,3);
  assert.equal(getLesson(9).words.find(w=>w.en==='teamwork').part,3);
  assert.equal(getLesson(10).words.find(w=>w.en==='now and then').part,3);
+});
+
+test('removed Lesson 8 names leave following word IDs and scores unchanged',()=>{
+ const lesson=getLesson(8);assert.ok(!lesson.words.some(w=>['Grand Banks','Newfoundland'].includes(w.en)));
+ const shore=lesson.words.find(w=>w.en==='shore');assert.equal(shore.id,24);assert.equal(shore.audio,'lesson-8/24');
+ const data=emptyProgress();data.history={22:[{score:100,heard:'Grand Banks'}],24:[{score:75,heard:'shore'}]};const s=storage();writeProgress(s,8,data);const restored=readProgress(s,8,lesson.words);assert.equal(restored.history[22],undefined);assert.equal(restored.bestScores[24],75);
 });

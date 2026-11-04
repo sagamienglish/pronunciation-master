@@ -21,7 +21,7 @@ function harness({navigator={},Meter=MicMeter,saved={}}={}){
  const synth={speaking:false,getVoices(){return [];},cancel(){},resume(){},speak(u){spoken=u;}};
  const context={practiceOrder,pronunciationFor,certificateRank,words,lessons,getLesson,themeColors,LESSON_KEY,readProgress,writeProgress,emptyProgress,scoreWord,sample,totalScore,MicMeter:Meter,IPadSpeechInput,isAppleTouchDevice,migrateProfile,profileSelections,ModelAudio:class{stop(){}play(id,onEnd){spoken={id};onEnd?.();}},SpeechInput:class extends NativeSpeechInput{constructor(r,busy){super(r,busy,{setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){}});}},Intl,document,window:{navigator,SpeechRecognition:Rec,speechSynthesis:synth,matchMedia(){return {matches:true};},addEventListener(){},scrollTo(){}},SpeechSynthesisUtterance:class{constructor(text){this.text=text;}},localStorage:{getItem(k){return storage.get(k)??null;},setItem(k,v){storage.set(k,v);if(k.includes('-lesson'))stored=JSON.parse(v);}},Date:class extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}},setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){},setInterval(fn){interval=fn;return 1;},clearInterval(){interval=null;},confirm(){return true;},console};
  vm.createContext(context);const source=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'');
- vm.runInContext(source+'\nthis.api={stats,filteredWords,sortPracticeCards,showPracticeScore,openChallengeHistory,renderChallengeHistory,selectLesson,testMicrophone,record,cancelRecording,startChallenge,updateTimer,updateCountdown,answerChallenge,finishChallenge,challengeSetup,historyHtml,speak,list,displayHeard,setReady:()=>micReady=true,setMode,listenQuick,applyMeaning,state:()=>({challenge,data,active,lesson,words}),seedHistory:(h)=>data.history[0]=h};',context);
+ vm.runInContext(source+'\nthis.api={stats,filteredWords,sortPracticeCards,showPracticeScore,openChallengeHistory,renderChallengeHistory,selectLesson,testMicrophone,record,cancelRecording,startChallenge,updateTimer,updateCountdown,answerChallenge,finishChallenge,challengeSetup,historyHtml,speak,list,displayHeard,errorMessage,practiceFace,setReady:()=>micReady=true,setMode,listenQuick,applyMeaning,state:()=>({challenge,data,active,lesson,words}),seedHistory:(h)=>data.history[0]=h};',context);
  return {api:context.api,nodes,recognition:()=>recognizer,advance(ms){now+=ms;interval?.();},stored:()=>stored,spoken:()=>spoken,start(){context.api.setReady();context.api.startChallenge();now+=3000;context.api.updateCountdown();},flush(){timeouts.splice(0).forEach(fn=>fn());}};
 }
 test('three-second countdown does not consume challenge time',()=>{const h=harness();h.api.setReady();h.api.startChallenge();assert.equal(h.api.state().challenge.phase,'countdown');h.advance(2000);assert.equal(h.api.state().challenge.phase,'countdown');assert.equal(h.nodes.get('#countdown-number').textContent,'1');h.advance(1000);assert.equal(h.api.state().challenge.phase,'running');h.advance(59000);assert.equal(h.api.state().challenge.phase,'running');h.advance(1000);assert.equal(h.api.state().challenge.phase,'done');});
@@ -154,4 +154,17 @@ test('incomplete sprint and older perfect scores never invent completion times',
 test('practice places phonetics beside meanings and challenge prompts keep English answers hidden',()=>{
  const h=harness();const html=h.nodes.get('#word-list').innerHTML;assert.match(html,/word-reading"><p class="meaning"[^>]*>ほとんど<\/p><span class="phonetic"[^>]*>\/níərli\//);assert.equal((html.match(/class="phonetic"/g)||[]).length,32);
  h.api.selectLesson(1);assert.match(h.nodes.get('#word-list').innerHTML,/túərizm/);h.api.setMode('quick');h.start();assert.doesNotMatch(h.nodes.get('#challenge-content').innerHTML,/class="phonetic"/);
+});
+
+test('microphone permission advice consistently refers to browser settings',()=>{const h=harness();for(const code of ['not-allowed','service-not-allowed']){assert.match(h.api.errorMessage(code),/ブラウザの設定を確認してください/);assert.doesNotMatch(h.api.errorMessage(code),/Safari|Siri/);}});
+test('practice uses speaking and perfect-score smile icons with accessible microphone names',()=>{const h=harness();const html=h.nodes.get('#word-list').innerHTML;assert.match(html,/data-practice-face="speaking"/);assert.doesNotMatch(html,/> 発音<\/button>/);h.api.state().data.history[0]=[{score:100,heard:'nearly'}];h.api.list();assert.match(h.nodes.get('#word-list').innerHTML,/nearlyを発音する[^>]*>.*?data-practice-face="smile"/);assert.match(h.api.practiceFace(false),/speaking/);});
+
+test('iPad sprint accepts successive words only after native release',async()=>{
+ const h=harness({navigator:{platform:'MacIntel',maxTouchPoints:5}});h.start();const c=h.api.state().challenge;
+ for(let i=0;i<3;i++){
+  h.api.answerChallenge(i);const rec=h.recognition();assert.equal(rec.continuous,false);rec.onresult({results:[[{transcript:c.items[i].say}]]});
+  assert.ok(h.api.state().active);await new Promise(resolve=>setTimeout(resolve,240));
+  assert.equal(h.api.state().active,null);assert.equal(c.results[i].score,100);
+ }
+ assert.equal(h.api.state().data.attempts,3);h.api.finishChallenge();
 });

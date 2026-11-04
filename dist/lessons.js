@@ -223,8 +223,8 @@ const vocabulary = {
  ["explore", "探検する", "動詞", 3],
  ["North America", "北アメリカ", "名詞", 3],
  ["a great number of ...", "非常に多くの…", "表現", 3, "a great number of"],
- ["Grand Banks", "グランドバンクス（海面下の台地群）", "名詞", 3],
- ["Newfoundland", "カナダ、ニューファンドランド島", "名詞", 3],
+ null, // Removed proper name; keep the ID for existing progress and audio.
+ null,
  ["shore", "岸", "名詞", 3],
  ["no longer ...", "もはや…ない", "表現", 3, "no longer"],
  ["fisherman", "漁師", "名詞", 3],

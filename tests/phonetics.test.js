@@ -11,7 +11,7 @@ test('all active vocabulary and expressions have static accent-mark transcriptio
   assert.equal(phonetic,phonetic.normalize('NFC'));
  }
  assert.equal(pronunciationFor('unlisted word'),'');
- assert.ok(!Object.keys(phonetics).includes('Mfuwe Village'));
+ for(const en of ['Mfuwe Village','Grand Banks','Newfoundland'])assert.ok(!Object.keys(phonetics).includes(en));
 });
 test('sample vocabulary uses textbook-style vowel accents and American sounds',()=>{
  assert.equal(pronunciationFor('nearly'),'níərli');
