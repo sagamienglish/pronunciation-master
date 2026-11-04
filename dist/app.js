@@ -6,7 +6,7 @@ import {lessons,getLesson,themeColors} from './lessons.js?v=19';
 import {LESSON_KEY,readProgress,writeProgress,emptyProgress} from './progress.js?v=19';
 import {MicMeter} from './audio.js?v=19';
 import {SpeechInput} from './speech-input.js';
-import {IPadSpeechInput,isAppleTouchDevice} from './ipad-speech.js?v=21';
+import {IPadSpeechInput,isAppleTouchDevice} from './ipad-speech.js?v=22';
 import {ModelAudio} from './model-audio.js';
 import {migrateProfile,profileSelections} from './profile.js';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -62,7 +62,7 @@ async function speak(w,rate=1,button=null){
  const done=()=>{button?.classList.remove('speaking');button?.setAttribute('aria-pressed','false');if(speechButton===button)speechButton=null;};
  try{await modelAudio.play(w.audio??w.id,done);}catch(e){done();toast(e.message||'音声を再生できませんでした。');}
 }
-function diagnostic(state){$('#speech-log').textContent=state.logs.join('\n');$('#ipad-connection').hidden=!ipadMode;$('#ipad-state').textContent=state.connected?'iPad：発話ごとにマイク接続を更新':`iPad：${state.label}`;}
+function diagnostic(state){$('#speech-log').textContent=state.logs.join('\n');$('#ipad-connection').hidden=!ipadMode;$('#ipad-state').textContent=state.connected?'iPad：接続を維持して次の回答を受付':`iPad：${state.label}`;}
 const onBusy=session=>{active=session;updateMicUI(!!session);};
 const speechInput=ipadMode?new IPadSpeechInput(Recognition,onBusy,diagnostic):new SpeechInput(Recognition,onBusy);
 $('#show-speech-status').onclick=()=>{const details=$('#speech-diagnostics');details.open=true;details.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});};
