@@ -19,7 +19,7 @@ export class IPadSpeechInput {
   this.clock.clearTimeout(this.resumeTimer);this.resumeTimer=null;
   const rec=new this.Recognition(),n={rec,owner:s,listening:false,closing:false,result:null,error:null,interim:null,watch:null,ending:null};this.native=n;
   const alive=()=>this.native===n;
-  const armWatch=ms=>{this.clock.clearTimeout(n.watch);n.watch=this.clock.setTimeout(()=>{if(!alive()||n.closing)return;n.error='no-speech';this.event('認識結果なし・接続を更新');this.close(n,true);},ms);};
+  const armWatch=ms=>{this.clock.clearTimeout(n.watch);n.watch=this.clock.setTimeout(()=>{if(!alive()||n.closing)return;n.error='recognition-timeout';this.event('アプリの待機時間内に認識結果なし・接続を更新');this.close(n,true);},ms);};
   rec.lang='en-US';rec.continuous=false;rec.interimResults=true;rec.maxAlternatives=1;
   const accept=text=>{if(!alive()||n.closing||this.session!==s||!text?.trim())return;n.result=text.trim();this.event('認識結果を受信・接続を終了中');this.close(n);};
   rec.onstart=()=>{if(alive()){n.listening=true;armWatch(s.retries?7000:4500);this.event('接続済み');}};
@@ -60,7 +60,7 @@ export class IPadSpeechInput {
     if(s.continuous&&this.session===s)this.connect(s);
    }else if(!['not-allowed','service-not-allowed','audio-capture','network','start-failed'].includes(n.error)&&s.retries<1){
     s.retries++;this.event('新しい接続で再試行');this.connect(s);
-   }else{this.session=null;this.onBusy(null);s.onError(n.error||'no-speech');}
+   }else{const code=n.error||'no-result';this.session=null;this.onBusy(null);this.event(`認識終了：${code==='recognition-timeout'?'待機時間切れ（認識結果なし）':code==='no-result'?'サービスが結果なしで終了':code==='no-speech'?'サービスから発話未検出の通知':code}`);s.onError(code);}
   },200);
  }
  cancel(){

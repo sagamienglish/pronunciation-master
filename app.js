@@ -6,7 +6,7 @@ import {lessons,getLesson,themeColors} from './lessons.js?v=19';
 import {LESSON_KEY,readProgress,writeProgress,emptyProgress} from './progress.js?v=19';
 import {MicMeter} from './audio.js?v=19';
 import {SpeechInput} from './speech-input.js';
-import {IPadSpeechInput,isAppleTouchDevice} from './ipad-speech.js?v=19';
+import {IPadSpeechInput,isAppleTouchDevice} from './ipad-speech.js?v=21';
 import {ModelAudio} from './model-audio.js';
 import {migrateProfile,profileSelections} from './profile.js';
 const $=s=>document.querySelector(s), $$=s=>[...document.querySelectorAll(s)];
@@ -22,8 +22,7 @@ const modelAudio=new ModelAudio();
 data.profile=migrateProfile(data.profile);
 const micSvg='<svg viewBox="0 0 24 24" aria-hidden="true"><rect x="9" y="2" width="6" height="12" rx="3"/><path d="M5 10v2a7 7 0 0014 0v-2M12 19v3M8 22h8"/></svg>';
 const speakingFaceSvg='<svg class="practice-face" viewBox="0 0 28 24" aria-hidden="true"><path d="M22 21v-5c3-2 4-5 3-8a7 7 0 00-13 1l-3 3h4v4h4v5"/><path d="M4 8l-2 4 2 4M7 9l-2 3 2 3"/><circle cx="16" cy="8" r=".8" fill="currentColor" stroke="none"/></svg>';
-const smileFaceSvg='<svg class="practice-face" viewBox="0 0 28 24" aria-hidden="true"><circle cx="14" cy="12" r="9"/><path d="M9 14c2 4 8 4 10 0"/><circle cx="11" cy="9" r=".8" fill="currentColor" stroke="none"/><circle cx="17" cy="9" r=".8" fill="currentColor" stroke="none"/></svg>';
-function practiceFace(perfect){return `<span class="practice-face-wrap" data-practice-face="${perfect?'smile':'speaking'}" aria-hidden="true">${perfect?smileFaceSvg:speakingFaceSvg}</span>`;}
+function practiceFace(){return `<span class="practice-face-wrap" data-practice-face="speaking" aria-hidden="true">${speakingFaceSvg}</span>`;}
 const speakerSvg='<svg viewBox="0 0 24 24" aria-hidden="true"><path d="M11 4L5 9H2v6h3l6 5zM15 8a6 6 0 010 8M18 5a10 10 0 010 14"/></svg>';
 function escape(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt;','>':'&gt;','"':'&quot;',"'":'&#39;'}[c]));}
 function toast(s){clearTimeout(toastTimer);$('#toast').textContent=s;$('#toast').hidden=false;toastTimer=setTimeout(()=>$('#toast').hidden=true,6000);}
@@ -35,11 +34,11 @@ const crownSvg='<svg class="crown-icon" viewBox="0 0 24 24" aria-hidden="true"><
 function crownMark(label,short=''){return `<span class="achievement-crown" role="img" aria-label="${escape(label)}" title="${escape(label)}">${crownSvg}${short?`<span class="crown-label" aria-hidden="true">${short}</span>`:''}</span>`;}
 function allMastered(progress,items){return items.length>0&&items.every(w=>progress.bestScores[w.id]>=90);}
 function stats(){const mastered=words.filter(w=>data.bestScores[w.id]>=90).length;$('#mastered').innerHTML=`${mastered} <em>/ ${words.length}</em>${allMastered(data,words)?crownMark('全単語マスター'):''}`;$('#master-bar').style.width=`${mastered/words.length*100}%`;$('#attempts').innerHTML=`${data.attempts} <em>回</em>`;$('#best').innerHTML=`${data.challengeBest??'—'} <em>/ 100</em>${data.challengeBest===100?crownMark('発音スプリント100点達成'):''}`;$('#weak-count').textContent=weakWords().length;$('#quick-best').innerHTML=`${data.quickBest} <em>語</em>`;renderLessons();}
-function showPracticeScore(card,result){const face=card.querySelector('[data-practice-face]');if(face){face.innerHTML=result.score===100?smileFaceSvg:speakingFaceSvg;face.setAttribute('data-practice-face',result.score===100?'smile':'speaking');}const score=card.querySelector('.practice-score');score.classList.remove('score-enter');score.innerHTML=`<strong>${result.score}</strong><span>点</span>`;score.setAttribute('aria-label',`今回の得点 ${result.score}点`);void score.offsetWidth;score.classList.add('score-enter');}
+function showPracticeScore(card,result){const score=card.querySelector('.practice-score');score.classList.remove('score-enter');score.innerHTML=`<strong>${result.score}</strong><span>点</span>`;score.setAttribute('aria-label',`今回の得点 ${result.score}点`);void score.offsetWidth;score.classList.add('score-enter');}
 function historyHtml(w){const h=(data.history[w.id]||[]).slice(-5);return h.length?`<small>直近</small>${h.map(r=>`<span class="score">${r.score}</span>`).join('<span class="arrow">→</span>')}`:'';}
 function filteredWords(){return practiceOrder((mode==='review'?weakWords():words).filter(w=>!part||w.part===part),data,scoreOrder);}
 function list(){const items=filteredWords();$('#list-title').textContent=mode==='review'?'苦手な単語を復習':'単語を練習';
- $('#word-list').innerHTML=items.length?items.map(w=>{const h=data.history[w.id]||[],last=h.at(-1),best=h.length?data.bestScores[w.id]:null;return `<article class="word-card" data-id="${w.id}"><div class="word-meta"><span>PART ${w.part} · ${w.pos}</span><span class="badge ${best>=90?'good':''}">${best===null?'未練習':`BEST ${best}`}</span></div><h3 lang="en" class="${w.en.length>18?'long':''}">${escape(w.en)}</h3><div class="word-reading"><p class="meaning" title="${escape(w.ja)}">${escape(w.ja)}</p><span class="phonetic" lang="en-fonipa" aria-label="発音記号" title="米音を基準にした発音の目安">/${escape(pronunciationFor(w.en))}/</span></div><div class="word-actions"><button class="icon" data-action="listen" aria-label="${escape(w.en)}のお手本を聞く">${speakerSvg}</button><button class="icon mic" data-action="record" ${!Recognition?'disabled':''} aria-label="${escape(w.en)}を発音する">${micSvg}${practiceFace(last?.score===100)}</button></div><div class="practice-score" aria-live="polite" aria-atomic="true"></div><div class="history" aria-label="直近5回の得点">${historyHtml(w)}</div><div class="card-result" aria-live="polite" title="${last?escape(displayHeard(last.heard)):''}">${last?`認識：${escape(displayHeard(last.heard))}`:''}</div></article>`;}).join(''):`<div class="empty"><h3>${mode==='review'?'復習する単語はありません':'単語が見つかりません'}</h3><p>${mode==='review'?'最後の練習が90点未満の単語が並びます。':'Partを変えてみてください。'}</p></div>`;
+ $('#word-list').innerHTML=items.length?items.map(w=>{const h=data.history[w.id]||[],last=h.at(-1),best=h.length?data.bestScores[w.id]:null;return `<article class="word-card" data-id="${w.id}"><div class="word-meta"><span>PART ${w.part} · ${w.pos}</span><span class="badge ${best>=90?'good':''}">${best===null?'未練習':`BEST ${best}`}</span></div><h3 lang="en" class="${w.en.length>18?'long':''}">${escape(w.en)}</h3><div class="word-reading"><p class="meaning" title="${escape(w.ja)}">${escape(w.ja)}</p><span class="phonetic" lang="en-fonipa" aria-label="発音記号" title="米音を基準にした発音の目安">/${escape(pronunciationFor(w.en))}/</span></div><div class="word-actions"><button class="icon" data-action="listen" aria-label="${escape(w.en)}のお手本を聞く">${speakerSvg}</button><button class="icon mic" data-action="record" ${!Recognition?'disabled':''} aria-label="${escape(w.en)}を発音する">${micSvg}${practiceFace()}</button></div><div class="practice-score" aria-live="polite" aria-atomic="true"></div><div class="history" aria-label="直近5回の得点">${historyHtml(w)}</div><div class="card-result" aria-live="polite" title="${last?escape(displayHeard(last.heard)):''}">${last?`認識：${escape(displayHeard(last.heard))}`:''}</div></article>`;}).join(''):`<div class="empty"><h3>${mode==='review'?'復習する単語はありません':'単語が見つかりません'}</h3><p>${mode==='review'?'最後の練習が90点未満の単語が並びます。':'Partを変えてみてください。'}</p></div>`;
  updateSortButton();$('#word-count').textContent=`${items.length}語を表示`;applyMeaning();updateMicUI(!!active);
 }
 function updateSortButton(){const button=$('#sort-words');button.setAttribute('aria-pressed',String(scoreOrder));button.innerHTML=`<span aria-hidden="true">⇅</span> ${scoreOrder?'教材順に戻す':'並べ替え'}`;button.title=scoreOrder?'教材に載っている順番に戻す':'未練習 → BEST得点が低い語 → 高い語';}
@@ -66,6 +65,7 @@ async function speak(w,rate=1,button=null){
 function diagnostic(state){$('#speech-log').textContent=state.logs.join('\n');$('#ipad-connection').hidden=!ipadMode;$('#ipad-state').textContent=state.connected?'iPad：発話ごとにマイク接続を更新':`iPad：${state.label}`;}
 const onBusy=session=>{active=session;updateMicUI(!!session);};
 const speechInput=ipadMode?new IPadSpeechInput(Recognition,onBusy,diagnostic):new SpeechInput(Recognition,onBusy);
+$('#show-speech-status').onclick=()=>{const details=$('#speech-diagnostics');details.open=true;details.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});};
 $('#release-mic').onclick=()=>{clearTimeout(quickRestart);speechInput.shutdown?.();micReady=false;if(['running','countdown'].includes(challenge?.phase))toast('接続を停止しました。回答ボタンで再接続できます。');};
 function cancelRecording(){speechInput.cancel();}
 function updateMicUI(on){
@@ -74,7 +74,7 @@ function updateMicUI(on){
  const q=$('#quick-mic');if(q){q.disabled=on||!Recognition;q.classList.toggle('recording',on);q.innerHTML=on?`${micSvg} 聞いています…`:`${micSvg} マイクを再開`;}
  if(on&&active?.button){active.button.classList.add('recording');active.button.disabled=true;}
 }
-function errorMessage(code){return ({'not-allowed':'マイク・音声認識が許可されていません。ブラウザの設定を確認してください。','service-not-allowed':'音声認識が制限されています。ブラウザの設定を確認してください。','audio-capture':'マイクが見つかりません。他のアプリのマイク使用も確認してください。','network':'音声認識に接続できません。インターネット接続を確認してください。','no-speech':'声を聞き取れませんでした。もう一度マイクを押してください。','aborted':'音声認識が中断されました。もう一度お試しください。'})[code]||'音声認識が終了しました。もう一度お試しください。';}
+function errorMessage(code){return ({'not-allowed':'マイク・音声認識が許可されていません。ブラウザの設定を確認してください。','service-not-allowed':'音声認識が制限されています。ブラウザの設定を確認してください。','audio-capture':'マイクが見つかりません。他のアプリのマイク使用も確認してください。','network':'音声認識に接続できません。インターネット接続を確認してください。','no-speech':'音声認識サービスで発話を検出できませんでした。もう一度マイクを押してください。','recognition-timeout':'音声認識から結果が返りませんでした。もう一度マイクを押してください。','no-result':'音声認識が結果を返さず終了しました。もう一度マイクを押してください。','aborted':'音声認識が中断されました。もう一度お試しください。'})[code]||'音声認識が終了しました。もう一度お試しください。';}
 function record(w,{button,onResult,onError=toast}={}){
  if(speechInput.busy){toast('マイクの終了処理中です。少し待ってから押してください。');return;}
  stopMeter();stopSpeech();
