@@ -83,3 +83,5 @@ test('removed Lesson 8 names leave following word IDs and scores unchanged',()=>
  const shore=lesson.words.find(w=>w.en==='shore');assert.equal(shore.id,24);assert.equal(shore.audio,'lesson-8/24');
  const data=emptyProgress();data.history={22:[{score:100,heard:'Grand Banks'}],24:[{score:75,heard:'shore'}]};const s=storage();writeProgress(s,8,data);const restored=readProgress(s,8,lesson.words);assert.equal(restored.history[22],undefined);assert.equal(restored.bestScores[24],75);
 });
+
+test('past rush records remain valid after removing Lesson 8 entries',()=>{const s=storage();const data=emptyProgress();data.quickBest=30;data.quickChallenges=[{score:30,date:'2026-11-04T00:00:00Z'}];writeProgress(s,8,data);const restored=readProgress(s,8,getLesson(8).words);assert.equal(restored.quickBest,30);assert.equal(restored.quickChallenges[0].score,30);assert.equal(getLesson(8).words.length,28);});

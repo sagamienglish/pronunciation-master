@@ -11,6 +11,7 @@ export function readProgress(storage,lesson,words){
  const saved=read(storage,progressKey(lesson));
  const profile=read(storage,PROFILE_KEY)||saved?.profile||read(storage,progressKey(7))?.profile;
  const data=emptyProgress(profile);
+ const scoreLimit=Math.max(words.length,...words.map(w=>w.id+1)); // Keep valid past rush scores when entries are removed.
  if(!saved||typeof saved.history!=='object'||!saved.history||Array.isArray(saved.history)||!Array.isArray(saved.challenges))return data;
  for(const w of words){
   const h=saved.history[w.id];
@@ -22,8 +23,8 @@ export function readProgress(storage,lesson,words){
  data.challenges=saved.challenges.filter(x=>x&&Number.isFinite(x.score)&&x.score>=0&&x.score<=100).slice(-50).map(x=>{const record={score:x.score,date:x.date};if(x.score===100&&Number.isFinite(x.elapsedMs)&&x.elapsedMs>=0&&x.elapsedMs<=60000)record.elapsedMs=x.elapsedMs;return record;});
  const n=saved.challengeBest;data.challengeBest=Number.isFinite(n)&&n>=0&&n<=100?n:null;
  for(const c of data.challenges)data.challengeBest=Math.max(data.challengeBest??0,c.score);
- data.quickChallenges=Array.isArray(saved.quickChallenges)?saved.quickChallenges.filter(x=>x&&Number.isInteger(x.score)&&x.score>=0&&x.score<=words.length&&typeof x.date==='string').slice(-50):[];
- data.quickBest=Number.isInteger(saved.quickBest)&&saved.quickBest>=0&&saved.quickBest<=words.length?saved.quickBest:0;
+ data.quickChallenges=Array.isArray(saved.quickChallenges)?saved.quickChallenges.filter(x=>x&&Number.isInteger(x.score)&&x.score>=0&&x.score<=scoreLimit&&typeof x.date==='string').slice(-50):[];
+ data.quickBest=Number.isInteger(saved.quickBest)&&saved.quickBest>=0&&saved.quickBest<=scoreLimit?saved.quickBest:0;
  data.quickBest=Math.max(data.quickBest,...data.quickChallenges.map(x=>x.score));
  return data;
 }
