@@ -6,17 +6,17 @@ import {words as oldLesson7} from '../dist/vocabulary.js';
 import {emptyProgress,progressKey,readProgress,writeProgress,PROFILE_KEY} from '../dist/progress.js';
 
 function storage(seed={}){const map=new Map(Object.entries(seed));return {getItem:key=>map.get(key)??null,setItem:(key,value)=>map.set(key,value)};}
-const counts=[[13,12,8],[13,10,9],[10,11,11],[16,7,8],[7,12,9],[12,9,8],[9,11,12]];
-test('seven lessons match the printed Part boundaries and keep unique local IDs',()=>{
- assert.deepEqual(lessons.map(l=>l.id),[1,2,3,4,5,6,7]);
+const counts=[[13,12,8],[13,10,9],[10,11,11],[16,7,8],[7,12,9],[12,9,8],[9,11,12],[10,8,12],[9,7,13],[15,9,12]];
+test('ten lessons match the printed Part boundaries and keep unique local IDs',()=>{
+ assert.deepEqual(lessons.map(l=>l.id),[1,2,3,4,5,6,7,8,9,10]);
  for(const l of lessons){
   assert.deepEqual([1,2,3].map(part=>l.words.filter(w=>w.part===part).length),counts[l.id-1],l.name);
   assert.deepEqual(l.words.map(w=>w.id),Array.from({length:l.words.length},(_,id)=>l.id===5&&id>=19?id+1:id));
   assert.equal(new Set(l.words.map(w=>w.en)).size,l.words.length);
   for(const w of l.words){assert.ok(w.ja&&w.pos&&w.say,w.en);assert.doesNotMatch(w.say,/[.…～/()]/,w.en);}
  }
- assert.equal(lessons.reduce((n,l)=>n+l.words.length,0),217);
- assert.equal(getLesson(8),undefined);
+ assert.equal(lessons.reduce((n,l)=>n+l.words.length,0),312);
+ assert.equal(getLesson(11),undefined);
 });
 test('Other words is excluded while all regular Part 1 entries in Lesson 6 remain',()=>{
  assert.ok(!getLesson(1).words.some(w=>w.en==='among'));
@@ -67,4 +67,13 @@ test('rush history migrates safely and retains the latest fifty dated rounds',()
  assert.equal(restored.quickChallenges.length,50);assert.equal(restored.quickChallenges[0].date,data.quickChallenges[5].date);assert.equal(restored.quickBest,19);
  const legacy=emptyProgress();delete legacy.quickChallenges;legacy.quickBest=12;s.setItem(progressKey(7),JSON.stringify(legacy));
  const migrated=readProgress(s,7,getLesson(7).words);assert.deepEqual(migrated.quickChallenges,[]);assert.equal(migrated.quickBest,12);
+});
+
+test('new lessons match the supplied parts, Japanese parts of speech and textbook themes',()=>{
+ for(const id of [8,9,10])for(const word of getLesson(id).words)assert.match(word.pos,/^(名詞|動詞|形容詞|副詞|代名詞|表現)$/);
+ assert.deepEqual([8,9,10].map(id=>getLesson(id).theme),['purple','green','orange']);
+ assert.ok(!getLesson(8).words.some(w=>['dish','coat','thick','practice'].includes(w.en)));
+ assert.equal(getLesson(8).words.find(w=>w.en==='sustainably').part,3);
+ assert.equal(getLesson(9).words.find(w=>w.en==='teamwork').part,3);
+ assert.equal(getLesson(10).words.find(w=>w.en==='now and then').part,3);
 });

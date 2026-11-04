@@ -1,3 +1,4 @@
+import {practiceOrder} from '../dist/practice-order.js';
 import {pronunciationFor} from '../dist/phonetics.js';
 import {certificateRank} from '../dist/awards.js';
 import test from 'node:test';
@@ -18,9 +19,9 @@ function harness({navigator={},Meter=MicMeter,saved={}}={}){
  const document={querySelector(s){if(!nodes.has(s))nodes.set(s,element());return nodes.get(s);},querySelectorAll(){return [];},addEventListener(){},createElement(){return element();},body:element()};
  class Rec{constructor(){recognizer=this;}start(){}stop(){this.onend?.();}abort(){this.onend?.();}}
  const synth={speaking:false,getVoices(){return [];},cancel(){},resume(){},speak(u){spoken=u;}};
- const context={pronunciationFor,certificateRank,words,lessons,getLesson,themeColors,LESSON_KEY,readProgress,writeProgress,emptyProgress,scoreWord,sample,totalScore,MicMeter:Meter,IPadSpeechInput,isAppleTouchDevice,migrateProfile,profileSelections,ModelAudio:class{stop(){}play(id,onEnd){spoken={id};onEnd?.();}},SpeechInput:class extends NativeSpeechInput{constructor(r,busy){super(r,busy,{setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){}});}},Intl,document,window:{navigator,SpeechRecognition:Rec,speechSynthesis:synth,matchMedia(){return {matches:true};},addEventListener(){},scrollTo(){}},SpeechSynthesisUtterance:class{constructor(text){this.text=text;}},localStorage:{getItem(k){return storage.get(k)??null;},setItem(k,v){storage.set(k,v);if(k.includes('-lesson'))stored=JSON.parse(v);}},Date:class extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}},setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){},setInterval(fn){interval=fn;return 1;},clearInterval(){interval=null;},confirm(){return true;},console};
+ const context={practiceOrder,pronunciationFor,certificateRank,words,lessons,getLesson,themeColors,LESSON_KEY,readProgress,writeProgress,emptyProgress,scoreWord,sample,totalScore,MicMeter:Meter,IPadSpeechInput,isAppleTouchDevice,migrateProfile,profileSelections,ModelAudio:class{stop(){}play(id,onEnd){spoken={id};onEnd?.();}},SpeechInput:class extends NativeSpeechInput{constructor(r,busy){super(r,busy,{setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){}});}},Intl,document,window:{navigator,SpeechRecognition:Rec,speechSynthesis:synth,matchMedia(){return {matches:true};},addEventListener(){},scrollTo(){}},SpeechSynthesisUtterance:class{constructor(text){this.text=text;}},localStorage:{getItem(k){return storage.get(k)??null;},setItem(k,v){storage.set(k,v);if(k.includes('-lesson'))stored=JSON.parse(v);}},Date:class extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}},setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){},setInterval(fn){interval=fn;return 1;},clearInterval(){interval=null;},confirm(){return true;},console};
  vm.createContext(context);const source=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'');
- vm.runInContext(source+'\nthis.api={stats,showPracticeScore,openChallengeHistory,renderChallengeHistory,selectLesson,testMicrophone,record,cancelRecording,startChallenge,updateTimer,updateCountdown,answerChallenge,finishChallenge,challengeSetup,historyHtml,speak,list,displayHeard,setReady:()=>micReady=true,setMode,listenQuick,applyMeaning,state:()=>({challenge,data,active,lesson,words}),seedHistory:(h)=>data.history[0]=h};',context);
+ vm.runInContext(source+'\nthis.api={stats,filteredWords,sortPracticeCards,showPracticeScore,openChallengeHistory,renderChallengeHistory,selectLesson,testMicrophone,record,cancelRecording,startChallenge,updateTimer,updateCountdown,answerChallenge,finishChallenge,challengeSetup,historyHtml,speak,list,displayHeard,setReady:()=>micReady=true,setMode,listenQuick,applyMeaning,state:()=>({challenge,data,active,lesson,words}),seedHistory:(h)=>data.history[0]=h};',context);
  return {api:context.api,nodes,recognition:()=>recognizer,advance(ms){now+=ms;interval?.();},stored:()=>stored,spoken:()=>spoken,start(){context.api.setReady();context.api.startChallenge();now+=3000;context.api.updateCountdown();},flush(){timeouts.splice(0).forEach(fn=>fn());}};
 }
 test('three-second countdown does not consume challenge time',()=>{const h=harness();h.api.setReady();h.api.startChallenge();assert.equal(h.api.state().challenge.phase,'countdown');h.advance(2000);assert.equal(h.api.state().challenge.phase,'countdown');assert.equal(h.nodes.get('#countdown-number').textContent,'1');h.advance(1000);assert.equal(h.api.state().challenge.phase,'running');h.advance(59000);assert.equal(h.api.state().challenge.phase,'running');h.advance(1000);assert.equal(h.api.state().challenge.phase,'done');});
@@ -73,7 +74,7 @@ test('lesson tabs change all counts, Part filters and certificate labels',()=>{
   h.api.setMode('challenge');h.start();const c=h.api.state().challenge;
   assert.equal(c.items.length,10);
   assert.ok(c.items.every(w=>lesson.words.includes(w)));
-  h.api.finishChallenge();assert.match(h.nodes.get('#challenge-content').innerHTML,new RegExp('LESSON 0'+lesson.id));
+  h.api.finishChallenge();assert.match(h.nodes.get('#challenge-content').innerHTML,new RegExp('LESSON '+String(lesson.id).padStart(2,'0')));
   h.api.setMode('practice');
  }
 });
@@ -86,8 +87,8 @@ test('lesson scores remain independent across switches and survive reload',()=>{
  const reload=harness({saved:{[LESSON_KEY]:'6'}});assert.equal(reload.api.state().lesson.id,6);
  assert.equal((reload.nodes.get('#word-list').innerHTML.match(/class="word-card"/g)||[]).length,29);
 });
-test('rush ends at each lesson length, including 28, 29 and 33 words',()=>{
- for(const lessonId of [1,5,6]){
+test('rush ends at each tested lesson length, including new Lessons 8–10',()=>{
+ for(const lessonId of [1,5,6,8,9,10]){
   const h=harness();h.api.selectLesson(lessonId);h.api.setMode('quick');h.start();const c=h.api.state().challenge;
   assert.equal(c.items.length,getLesson(lessonId).words.length);
   assert.match(h.nodes.get('#challenge-content').innerHTML,new RegExp('/ '+c.items.length));
