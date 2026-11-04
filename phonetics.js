@@ -218,6 +218,101 @@ reuse|rìːjúːz
 ourselves|auərsélvz
 so far|sóu fɑ́ːr
 without doing|wiðáut dúːiŋ
+cod|kɑ́d
+tempura|tempúːrə
+fish and chips|fíʃ ən tʃíps
+white-meat|wáit mìːt
+batter|bǽtər
+fry|frái
+crunchy|krʌ́ntʃi
+chip|tʃíp
+vinegar|vínigər
+absorb|əbsɔ́ːrb
+Industrial Revolution|indʌ́striəl rèvəlúːʃən
+at the beginning of ...|ət ðə bigíniŋ əv ...
+nutritious|nuːtríʃəs
+separately|sépərətli
+in the middle of ...|in ðə mídəl əv ...
+instant|ínstənt
+Britain|brítən
+chippie|tʃípi
+Europe|júərəp
+explore|iksplɔ́ːr
+North America|nɔ́ːrθ əmérikə
+a great number of ...|ə gréit nʌ́mbər əv ...
+Grand Banks|grǽnd bǽŋks
+Newfoundland|núːfəndlənd
+shore|ʃɔ́ːr
+no longer ...|nóu lɔ́ːŋgər ...
+fisherman|fíʃərmən
+by the end of ...|bai ði énd əv ...
+limit|límit
+sustainably|səstéinəbli
+esports|íːspɔːrts
+newscaster|núːzkæ̀stər
+stare (at ...)|stéər (ət ...)
+screen|skríːn
+shout|ʃáut
+venue|vénjuː
+rocket-powered|rɑ́kit pàuərd
+participate|pɑːrtísəpèit
+compete|kəmpíːt
+short for ...|ʃɔ́ːrt fər ...
+widely|wáidli
+popularity|pɑ̀pjulǽrəti
+International Olympic Committee|ìntərnǽʃənəl əlímpik kəmíti
+sharply|ʃɑ́ːrpli
+obtain|əbtéin
+scholarship|skɑ́lərʃìp
+in spite of ...|in spáit əv ...
+think of ...|θíŋk əv ...
+commentator|kɑ́məntèitər
+I'm afraid ...|aim əfréid ...
+quick|kwík
+response|rispɑ́ns
+concentration|kɑ̀nsəntréiʃən
+athlete|ǽθliːt
+government|gʌ́vərnmənt
+acknowledge|əknɑ́lidʒ
+visa|víːzə
+regardless of ...|rigɑ́ːrdləs əv ...
+teamwork|tíːmwə̀ːrk
+relearn|rìːlə́ːrn
+artwork|ɑ́ːrtwə̀ːrk
+element|éləmənt
+deer|díər
+creator|kriéitər
+pay attention to ...|péi əténʃən tə ...
+sustainability|səstèinəbíləti
+awareness|əwéərnəs
+connected|kənéktid
+go on to do|gou ɑ́n tə dúː
+none|nʌ́n
+Western|wéstərn
+curved|kə́ːrvd
+scrap|skrǽp
+leave ... behind|líːv ... biháind
+overpopulation|òuvərpɑpjuléiʃən
+regularly|régjələrli
+prevent ... from doing|privént ... frəm dúːiŋ
+hurt|hə́ːrt
+skin|skín
+leather|léðər
+precious|préʃəs
+as for ...|əz fɔ́ːr ...
+landscape|lǽndskèip
+actively|ǽktivli
+debut|deibjúː
+as follows|əz fɑ́louz
+as a kid|əz ə kíd
+drawing|drɔ́ːiŋ
+show business|ʃóu bíznəs
+shift|ʃíft
+devote oneself to ...|divóut wʌnsélf tə ...
+conclude|kənklúːd
+detour|díːtùər
+contribute|kəntríbjuːt
+now and then|náu ən ðén
 `;
 export const phonetics=Object.freeze(Object.fromEntries(entries.trim().split('\n').map(line=>line.split('|').map(value=>value.normalize('NFC')))));
 export function pronunciationFor(word){return phonetics[word]||'';}
