@@ -240,8 +240,6 @@ Europe|júərəp
 explore|iksplɔ́ːr
 North America|nɔ́ːrθ əmérikə
 a great number of ...|ə gréit nʌ́mbər əv ...
-Grand Banks|grǽnd bǽŋks
-Newfoundland|núːfəndlənd
 shore|ʃɔ́ːr
 no longer ...|nóu lɔ́ːŋgər ...
 fisherman|fíʃərmən
