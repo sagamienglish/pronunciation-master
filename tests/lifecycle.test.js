@@ -157,7 +157,7 @@ test('practice places phonetics beside meanings and challenge prompts keep Engli
 });
 
 test('microphone permission advice consistently refers to browser settings',()=>{const h=harness();for(const code of ['not-allowed','service-not-allowed']){assert.match(h.api.errorMessage(code),/ブラウザの設定を確認してください/);assert.doesNotMatch(h.api.errorMessage(code),/Safari|Siri/);}});
-test('practice uses speaking and perfect-score smile icons with accessible microphone names',()=>{const h=harness();const html=h.nodes.get('#word-list').innerHTML;assert.match(html,/data-practice-face="speaking"/);assert.doesNotMatch(html,/> 発音<\/button>/);h.api.state().data.history[0]=[{score:100,heard:'nearly'}];h.api.list();assert.match(h.nodes.get('#word-list').innerHTML,/nearlyを発音する[^>]*>.*?data-practice-face="smile"/);assert.match(h.api.practiceFace(false),/speaking/);});
+test('practice retains the same speaking icon for unpractised and perfect-score words',()=>{const h=harness();const html=h.nodes.get('#word-list').innerHTML;assert.match(html,/data-practice-face="speaking"/);assert.doesNotMatch(html,/> 発音<\/button>/);h.api.state().data.history[0]=[{score:100,heard:'nearly'}];h.api.list();assert.match(h.nodes.get('#word-list').innerHTML,/nearlyを発音する[^>]*>.*?data-practice-face="speaking"/);assert.doesNotMatch(h.nodes.get('#word-list').innerHTML,/data-practice-face="smile"/);assert.match(h.api.practiceFace(),/speaking/);});
 
 test('iPad sprint accepts successive words only after native release',async()=>{
  const h=harness({navigator:{platform:'MacIntel',maxTouchPoints:5}});h.start();const c=h.api.state().challenge;
@@ -168,3 +168,5 @@ test('iPad sprint accepts successive words only after native release',async()=>{
  }
  assert.equal(h.api.state().data.attempts,3);h.api.finishChallenge();
 });
+
+test('recognition errors distinguish timeout, OS no-speech and empty completion',()=>{const h=harness();assert.match(h.api.errorMessage('recognition-timeout'),/結果が返りません/);assert.match(h.api.errorMessage('no-result'),/結果を返さず終了/);assert.match(h.api.errorMessage('no-speech'),/サービスで発話を検出できません/);h.nodes.get('#show-speech-status').onclick();assert.equal(h.nodes.get('#speech-diagnostics').open,true);});

@@ -27,7 +27,7 @@ test('word rush reopens a fresh recognizer after each answer, including repeated
  assert.equal(heard.length,20);assert.equal(h.counts().starts,21);h.input.shutdown();h.advance(200);assert.equal(h.counts().starts,21);
 });
 test('silent iPad capture is replaced once instead of being reused indefinitely',()=>{
- const h=setup();let error;h.input.start({onTranscript(){assert.fail();},onError:e=>error=e});h.advance(4700);assert.equal(h.counts().starts,2);h.advance(7200);assert.equal(error,'no-speech');assert.equal(h.input.busy,false);
+ const h=setup();let error;h.input.start({onTranscript(){assert.fail();},onError:e=>error=e});h.advance(4700);assert.equal(h.counts().starts,2);h.advance(7200);assert.equal(error,'recognition-timeout');assert.equal(h.input.busy,false);
  h.input.start({onTranscript(){}});assert.equal(h.counts().starts,3);
 });
 test('new target waits for native end and cooldown; cancelled results cannot leak',()=>{
@@ -39,3 +39,7 @@ test('missing native end falls back through abort and bounded release',()=>{
 test('permission failures stop without retrying and permit a later user retry',()=>{
  const h=setup();let error;h.input.start({onError:e=>error=e});h.instances[0].onerror({error:'not-allowed'});h.advance(200);assert.equal(error,'not-allowed');assert.equal(h.counts().starts,1);assert.equal(h.input.busy,false);h.input.start({onTranscript(){}});assert.equal(h.counts().starts,2);
 });
+
+test('OS no-speech and application timeout retain separate causes in errors and diagnostics',()=>{const h=setup();let code;h.input.start({onError:e=>code=e});h.instances[0].onerror({error:'no-speech'});h.advance(200);h.instances[1].onerror({error:'no-speech'});h.advance(200);assert.equal(code,'no-speech');assert.match(h.input.logs.at(-1),/サービスから発話未検出/);});
+
+test('native end without a transcript reports an empty result separately from timeout',()=>{const h=setup();let code;h.input.start({onError:e=>code=e});h.instances[0].onend();h.advance(200);h.instances[1].onend();h.advance(200);assert.equal(code,'no-result');assert.match(h.input.logs.at(-1),/サービスが結果なしで終了/);});
