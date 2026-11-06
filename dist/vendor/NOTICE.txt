@@ -1,0 +1,13 @@
+Optional compatibility speech recognition
+
+vosk-browser 0.0.8 by Ciaran O’Reilly and contributors; Apache License 2.0.
+https://www.npmjs.com/package/vosk-browser
+Vosk / Kaldi / OpenFst WebAssembly code is bundled by that package; retain its embedded license notices.
+uuid 9.0.0; MIT License (LICENSE-UUID.txt).
+The generated bundle includes TypeScript helpers with the Microsoft MIT notice embedded.
+
+English model: vosk-model-small-en-us-0.15
+Copyright 2020 Alpha Cephei Inc. Apache License 2.0.
+https://alphacephei.com/vosk/models
+Model files are unmodified, repackaged from the official ZIP into a tar.gz container with a model/ root.
+A copy of the Apache license is in LICENSE-APACHE-2.0.txt.
