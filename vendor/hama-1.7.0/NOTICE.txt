@@ -9,3 +9,6 @@ Includes packaged asr_waveform.hama and hama.wasm, unmodified.
 Changes: inline JSON vocab imports to run as native browser ES modules;
 remove source map links; add same-origin Cache Storage to engine.browser.js.
 Only phoneme ASR is used. G2P/P2G model weights are not included or loaded.
+Startup recovery changes: cache reads are time-limited, writes are non-blocking,
+network loads have abort deadlines and progress callbacks; loader imports are versioned.
+The original acoustic model and WASM files remain unchanged.

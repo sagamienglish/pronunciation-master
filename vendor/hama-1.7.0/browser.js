@@ -19947,7 +19947,7 @@ const p2gVocabData={"tokens": ["<pad>", "<unk>", "<bos>", "<eos>", "<src>", "<tg
 import { ASR_OUTPUT_FRAME_SAMPLES, ctcPhonemeSpans } from "./ctc.js";
 export { ctcPhonemeSpans, ASR_OUTPUT_FRAME_SAMPLES } from "./ctc.js";
 import { ASR_VOCAB, HamaEngine } from "./engine.js";
-import { loadWasm, resolveModelBytes } from "./engine.browser.js";
+import { loadWasm, resolveModelBytes } from "./engine.browser.js?v=2";
 import { decodeP2GOutput, normalizePhonemeTokens } from "./p2g-text.js";
 import { buildDisplayIpa, decodeIdsToResult, decoderIds, encodeText, prepareTextForPrediction, } from "./tokenizer.js";
 import { pronunciationReplaceWithModel, pronunciationScanWithModel, } from "./pronunciation.js";
