@@ -29,6 +29,8 @@ function escape(s){return String(s).replace(/[&<>"']/g,c=>({'&':'&amp;','<':'&lt
 function toast(s){clearTimeout(toastTimer);$('#toast').textContent=s;$('#toast').hidden=false;toastTimer=setTimeout(()=>$('#toast').hidden=true,6000);}
 function persist(){try{writeProgress(localStorage,lesson.id,data);}catch{toast('このブラウザでは記録を保存できません。現在の画面では練習を続けられます。');}}
 function displayHeard(text){return String(text??'').toLowerCase();}
+// Both recognition engines use exactly the transcript shown to the learner.
+function transcriptResult(w,text){const heard=displayHeard(text);return {score:scoreWord(w.say,heard),heard,date:new Date().toISOString()};}
 function latest(w){return data.history[w.id]?.at(-1);}
 function weakWords(){return words.filter(w=>latest(w)&&latest(w).score<90);}
 const crownSvg='<svg class="crown-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l5 4 4-7 4 7 5-4-2 12H5z"/><path d="M5 21h14"/></svg>';
@@ -85,7 +87,7 @@ function errorMessage(code){return ({'not-allowed':'マイク・音声認識が�
 function record(w,{button,onResult,onError=toast}={}){
  if(speechInput.busy){toast('マイクの終了処理中です。少し待ってから押してください。');return;}
  stopMeter();stopSpeech();
- speechInput.start({button,vocabulary:words,onTranscript:heard=>onResult({score:scoreWord(w.say,heard),heard,date:new Date().toISOString()}),onError:code=>onError(errorMessage(code),code)});
+ speechInput.start({button,vocabulary:words,onTranscript:heard=>onResult(transcriptResult(w,heard)),onError:code=>onError(errorMessage(code),code)});
 }
 function recognitionAvailable(){return recognitionMode==='local'?localSpeechInput.ready:!!Recognition;}
 function practiceSignal({kind,phase,level=0,samples}={}){
@@ -182,9 +184,9 @@ function listenQuick(){
   if(challenge!==c||c.phase!=='running')return;if(Date.now()>=c.deadline){finishQuick();return;}
   if(c.index>=c.items.length||Date.now()<(c.blockUntil||0))return;
   if(scoreWord('skip',heard)===100){skipQuick(true);return;}
-  c.endCount=0;const w=c.items[c.index],score=scoreWord(w.say,heard),r={score,heard,date:new Date().toISOString()};addHistory(w,r);
+  c.endCount=0;const w=c.items[c.index],r=transcriptResult(w,heard),{score}=r;addHistory(w,r);
   if(score===100){quickVictory(w);c.results[c.index]=r;c.correct++;c.index++;c.feedback=`正解！ ${w.en}`;if(c.index===c.items.length){setTimeout(()=>{if(challenge===c&&c.phase==='running')finishQuick();},1100);return;}}
-  else c.feedback=`認識：${heard} ／ もう一度、またはスキップ。`;
+  else c.feedback=`認識：${r.heard} ／ もう一度、またはスキップ。`;
   quickBoard();
  },onError:code=>{
   if(challenge!==c||c.phase!=='running')return;
