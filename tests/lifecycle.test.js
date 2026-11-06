@@ -185,3 +185,41 @@ test('local practice, sprint and rush receive the full lesson context rather tha
 test('Safari returns once to native text recognition without altering saved practice or certificates',()=>{const saved=JSON.stringify({history:{0:[{score:90,heard:'nearly',date:'2026-11-01T00:00:00Z'}]},bestScores:{0:90},attempts:1,challenges:[{score:100,date:'2026-11-01T00:00:00Z',elapsedMs:25000}],profile:{name:'Test Student',class:'3',number:'12'}});const h=harness({navigator:{platform:'MacIntel',maxTouchPoints:5,userAgent:'Version/27.0 Mobile Safari/605.1.15'},saved:{'pronunciation-lab-recognition-safari':'local','pronunciation-lab-lesson7-v1':saved}});assert.equal(h.api.state().recognitionMode,'native');assert.equal(h.api.state().localSpeechInput.ready,false);assert.equal(h.getSaved('pronunciation-lab-recognition-safari'),'native');assert.equal(h.getSaved('pronunciation-lab-safari-native-default-v1'),'1');assert.equal(h.getSaved('pronunciation-lab-lesson7-v1'),saved);assert.match(h.nodes.get('#lesson-footer').textContent,/標準認識/);let connection;for(const w of words.slice(0,3)){let result;h.api.record(w,{onResult:r=>result=r});const rec=h.recognition();if(connection)assert.equal(rec,connection);connection=rec;rec.onresult({resultIndex:0,results:[[{transcript:w.say}]]});assert.equal(result.score,100);}});
 test('desktop Safari also returns to native recognition',()=>{const h=harness({navigator:{platform:'MacIntel',maxTouchPoints:0,userAgent:'Version/27.0 Safari/605.1.15'},saved:{'pronunciation-lab-recognition-desktop':'local'}});assert.equal(h.api.state().recognitionMode,'native');assert.equal(h.getSaved('pronunciation-lab-recognition-desktop'),'native');});
 test('later explicit choices, Chrome, standalone and Safari without native API retain their compatibility option',async()=>{const prepare=LocalSpeechInput.prototype.prepare;LocalSpeechInput.prototype.prepare=async function(){this.model={};};try{const ipad={platform:'MacIntel',maxTouchPoints:5,userAgent:'Version/27.0 Mobile Safari/605.1.15'};for(const config of [{navigator:ipad,key:'safari',saved:{'pronunciation-lab-safari-native-default-v1':'1'}},{navigator:{...ipad,userAgent:'CriOS/155.0 Mobile Safari/604.1'},key:'chrome'},{navigator:{...ipad,standalone:true},key:'standalone'},{navigator:ipad,key:'safari',nativeRecognition:false}]){const h=harness({...config,saved:{...config.saved,['pronunciation-lab-recognition-'+config.key]:'local'}});await new Promise(setImmediate);assert.equal(h.api.state().recognitionMode,'local');assert.match(h.nodes.get('#lesson-footer').textContent,/互換認識/);}}finally{LocalSpeechInput.prototype.prepare=prepare;}});
+
+
+test('native and compatibility practice score the displayed transcript identically',()=>{
+ for(const heard of ['SUNGLASSES','millimeter','Dutch','wrong answer']){
+  const results=[];
+  for(const engine of ['native','local']){
+   const h=harness();let submit;
+   if(engine==='local'){
+    const local=h.api.state().localSpeechInput;local.model={};h.api.useRecognitionMode('local');
+    local.start=options=>{submit=options.onTranscript;return true;};
+   }
+   const target={say:'sunglasses'};
+   h.api.record(target,{onResult:r=>results.push(r)});
+   if(engine==='native')h.recognition().onresult({results:[[{transcript:heard}]]});else submit(heard);
+  }
+  assert.equal(results.length,2);
+  assert.equal(results[0].heard,heard.toLowerCase());
+  assert.equal(results[1].heard,results[0].heard);
+  assert.equal(results[1].score,results[0].score);
+  assert.equal(results[1].score,scoreWord('sunglasses',results[1].heard));
+  if(heard==='SUNGLASSES')assert.equal(results[1].score,100);
+  else assert.ok(results[1].score<100);
+ }
+});
+test('compatibility sprint and rush award full credit for an exact transcript',()=>{
+ for(const mode of ['challenge','quick']){
+  const h=harness(),local=h.api.state().localSpeechInput;let submit;
+  local.model={};h.api.useRecognitionMode('local');
+  local.start=options=>{submit=options.onTranscript;return true;};
+  h.api.setMode(mode);h.start();const c=h.api.state().challenge,w=c.items[0];
+  if(mode==='challenge')h.api.answerChallenge(0);
+  submit(w.say.toUpperCase());
+  assert.equal(c.results[0].score,100);
+  assert.equal(c.results[0].heard,w.say.toLowerCase());
+  if(mode==='quick')assert.equal(c.correct,1);
+  h.api.finishChallenge();
+ }
+});
