@@ -29,3 +29,11 @@ A second browser fixture streamed these sample files through a MediaStreamDestin
 - This model is not trained or calibrated here to label a pronunciation as “katakana.” A phoneme mismatch can also be a model error. Human validation across different voices is needed before altering the main app's scores.
 
 Sources: https://hamanlp.org/docs/apis/ and https://github.com/hamanlp/hama . License and exact npm source identity are in `dist/vendor/hama-1.7.0/NOTICE.txt`.
+
+## Startup recovery (2026-11-06)
+
+A local-file opening report was received. The experiment must be opened at its public HTTPS URL. Local-file pages now show a link to that URL when scripts are permitted to run.
+
+The prepare-button binding no longer waits for static ES-module imports: a small deferred classic script binds it and displays progress before dynamic helper loading. A click during bootstrap is retained. Script download failure, worker boot, model transfer progress and startup failure are visible. Worker startup failure or a silent 8-second boot falls back to the same model on the main page. A 45-second overall preparation deadline and a 20-second inference deadline restore retry controls; stale messages cannot enable a superseded attempt.
+
+The asset loader now bounds cache reads to 1.2 seconds and does not await cache writes. Fetches have a 30-second abort deadline. The acoustic model, vocabulary and phoneme comparison formula are unchanged. No iPad-specific cause has been established from the local-file report alone. Browser tests verified both the normal worker and an actual-model fallback under a simulated Worker-construction failure. Automated checks cover silent boot, readiness timeout, late messages, retry, failed helper import, local-file guidance, stalled cache reads/writes and cache reuse.
