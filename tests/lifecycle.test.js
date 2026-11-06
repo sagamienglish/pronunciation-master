@@ -13,7 +13,7 @@ import {IPadSpeechInput,isAppleTouchDevice} from '../dist/ipad-speech.js';
 import {migrateProfile,profileSelections} from '../dist/profile.js';
 import {SpeechInput as NativeSpeechInput} from '../dist/speech-input.js';
 import {rmsLevel,MicMeter} from '../dist/audio.js';
-function harness({navigator={},Meter=MicMeter,saved={},nativeRecognition=true}={}){
+function harness({navigator={},Meter=MicMeter,saved={},nativeRecognition=true,compatibilityStartup=false}={}){
  let now=Date.UTC(2026,10,3,9),interval,recognizer,stored,spoken;
  const nodes=new Map(),timeouts=[],storage=new Map(Object.entries(saved));
  function element(){return {innerHTML:'',textContent:'',value:'',hidden:false,disabled:false,style:{},dataset:{},classList:{add(){},remove(){},toggle(){}},setAttribute(){},addEventListener(){},remove(){},append(){},querySelector(){return element();},scrollIntoView(){},showModal(){this.open=true;},close(){this.open=false;}};}
@@ -21,7 +21,9 @@ function harness({navigator={},Meter=MicMeter,saved={},nativeRecognition=true}={
  class Rec{constructor(){recognizer=this;}start(){}stop(){this.onend?.();}abort(){this.onend?.();}}
  const synth={speaking:false,getVoices(){return [];},cancel(){},resume(){},speak(u){spoken=u;}};
  const context={LocalSpeechInput,waveformPath,practiceOrder,pronunciationFor,certificateRank,words,lessons,getLesson,themeColors,LESSON_KEY,readProgress,writeProgress,emptyProgress,scoreWord,sample,totalScore,MicMeter:Meter,IPadSpeechInput,isAppleTouchDevice,migrateProfile,profileSelections,ModelAudio:class{stop(){}play(id,onEnd){spoken={id};onEnd?.();}},SpeechInput:class extends NativeSpeechInput{constructor(r,busy){super(r,busy,{setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){}});}},Intl,document,window:{navigator,SpeechRecognition:nativeRecognition?Rec:undefined,speechSynthesis:synth,matchMedia(query){return {matches:query.includes('prefers-reduced-motion')};},addEventListener(){},scrollTo(){}},SpeechSynthesisUtterance:class{constructor(text){this.text=text;}},localStorage:{getItem(k){return storage.get(k)??null;},setItem(k,v){storage.set(k,v);if(k.includes('-lesson'))stored=JSON.parse(v);}},Date:class extends Date{constructor(...args){super(...(args.length?args:[now]));}static now(){return now;}},setTimeout(fn){timeouts.push(fn);return timeouts.length;},clearTimeout(){},setInterval(fn){interval=fn;return 1;},clearInterval(){interval=null;},confirm(){return true;},console};
- vm.createContext(context);const source=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'');
+ vm.createContext(context);let source=fs.readFileSync(new URL('../dist/app.js',import.meta.url),'utf8').replace(/^import[^\n]+\n/gm,'');
+ // Keep native adapter regression tests independent of automatic model downloads.
+ if(!compatibilityStartup)source=source.replace("let speechInput=localSpeechInput,recognitionMode='local'","let speechInput=nativeSpeechInput,recognitionMode='native'").replace(/^enableCompatibility\(\);$/m,'');
  vm.runInContext(source+'\nthis.api={stats,useRecognitionMode,recognitionAvailable,browserContext,filteredWords,sortPracticeCards,showPracticeScore,openChallengeHistory,renderChallengeHistory,selectLesson,testMicrophone,record,cancelRecording,startChallenge,updateTimer,updateCountdown,answerChallenge,finishChallenge,challengeSetup,historyHtml,speak,list,displayHeard,errorMessage,practiceFace,setReady:()=>micReady=true,setMode,listenQuick,applyMeaning,state:()=>({challenge,data,active,lesson,words,recognitionMode,localSpeechInput}),seedHistory:(h)=>data.history[0]=h};',context);
  return {api:context.api,nodes,getSaved:key=>storage.get(key),recognition:()=>recognizer,advance(ms){now+=ms;interval?.();},stored:()=>stored,spoken:()=>spoken,start(){context.api.setReady();context.api.startChallenge();now+=3000;context.api.updateCountdown();},flush(){timeouts.splice(0).forEach(fn=>fn());}};
 }
@@ -172,19 +174,10 @@ test('iPad sprint accepts successive words using one native connection',()=>{
 test('recognition errors distinguish timeout, OS no-speech and empty completion',()=>{const h=harness();assert.match(h.api.errorMessage('recognition-timeout'),/結果が返りません/);assert.match(h.api.errorMessage('no-result'),/結果を返さず終了/);assert.match(h.api.errorMessage('no-speech'),/サービスで発話を検出できません/);h.nodes.get('#show-speech-status').onclick();assert.equal(h.nodes.get('#speech-diagnostics').open,true);});
 
 test('unsupported native speech can enable local practice and both challenges without native API',()=>{const h=harness({nativeRecognition:false});assert.equal(h.api.recognitionAvailable(),false);h.api.state().localSpeechInput.model={};assert.equal(h.api.useRecognitionMode('local'),true);assert.equal(h.api.recognitionAvailable(),true);h.api.list();assert.doesNotMatch(h.nodes.get('#word-list').innerHTML,/<button class="icon mic"[^>]*disabled/);h.api.setMode('challenge');h.api.setReady();h.api.challengeSetup();assert.doesNotMatch(h.nodes.get('#challenge-content').innerHTML,/id="begin-challenge" disabled/);h.api.setMode('quick');h.api.setReady();h.api.challengeSetup();assert.doesNotMatch(h.nodes.get('#challenge-content').innerHTML,/id="begin-challenge" disabled/);});
-test('Safari keeps native mode by default while other iPad contexts get compatibility guidance',()=>{for(const [ua,context] of [['Version/27.0 Mobile Safari/605.1.15','safari'],['CriOS/155.0 Mobile Safari/604.1','chrome'],['LoiLoNote Mobile','embedded']]){const h=harness({navigator:{platform:'MacIntel',maxTouchPoints:5,userAgent:ua}});assert.equal(h.api.browserContext(),context);assert.equal(h.api.state().recognitionMode,'native');assert.equal(h.api.state().localSpeechInput.ready,false);if(context==='safari')assert.equal(h.nodes.has('#recognition-notice'),false);else assert.equal(h.nodes.get('#recognition-notice').hidden,false);}});
 
-test('top compatibility switch toggles both engines without a settings dialog',async()=>{const h=harness(),local=h.api.state().localSpeechInput;local.model={};const button=h.nodes.get('#recognition-toggle');await button.onclick();assert.equal(h.api.state().recognitionMode,'local');assert.equal(h.nodes.get('#recognition-toggle-state').textContent,'ON');assert.equal(h.nodes.has('#recognition-dialog'),false);button.onclick();assert.equal(h.api.state().recognitionMode,'native');assert.equal(h.nodes.get('#recognition-toggle-state').textContent,'OFF');assert.doesNotMatch(h.nodes.get('#word-list').innerHTML,/<small>待機<\/small>/);});
-test('switching off during preparation prevents a late load from changing engines',async()=>{const h=harness(),local=h.api.state().localSpeechInput;let finish;local.prepare=()=>new Promise(resolve=>finish=resolve);const button=h.nodes.get('#recognition-toggle'),loading=button.onclick();assert.equal(h.nodes.get('#recognition-toggle-state').textContent,'準備中');button.onclick();assert.equal(h.nodes.get('#recognition-toggle-state').textContent,'OFF');local.model={};finish();await loading;assert.equal(h.api.state().recognitionMode,'native');assert.equal(h.nodes.get('#recognition-notice').hidden,true);});
-test('preparation failure restores the off switch and allows retry',async()=>{const h=harness(),local=h.api.state().localSpeechInput;local.prepare=async()=>{throw Error('test download failure');};await h.nodes.get('#recognition-toggle').onclick();assert.equal(h.nodes.get('#recognition-toggle-state').textContent,'OFF');assert.match(h.nodes.get('#recognition-notice-text').textContent,/test download failure/);assert.equal(h.api.state().recognitionMode,'native');});
-test('compatibility switch cannot replace the engine during a challenge',async()=>{const h=harness();h.start();await h.nodes.get('#recognition-toggle').onclick();assert.equal(h.api.state().recognitionMode,'native');assert.equal(h.nodes.get('#recognition-toggle-state').textContent,'OFF');h.api.finishChallenge();});
-test('cancelling compatibility preparation preserves the working native iPad connection',async()=>{const h=harness({navigator:{platform:'MacIntel',maxTouchPoints:5,userAgent:'Version/27.0 Mobile Safari/605.1.15'}});h.api.record(words[0],{onResult(){}});const rec=h.recognition();rec.onresult({resultIndex:0,results:[[{transcript:'nearly'}]]});let finish;h.api.state().localSpeechInput.prepare=()=>new Promise(resolve=>finish=resolve);const button=h.nodes.get('#recognition-toggle'),loading=button.onclick();button.onclick();finish();await loading;h.api.record(words[1],{onResult(){}});assert.equal(h.recognition(),rec);h.api.cancelRecording();});
 
 test('local practice, sprint and rush receive the full lesson context rather than only the expected word',()=>{const h=harness(),local=h.api.state().localSpeechInput;local.model={};h.api.useRecognitionMode('local');const starts=[];local.start=options=>{starts.push(options);return true;};h.api.record(words[0],{onResult(){}});assert.equal(starts.at(-1).vocabulary.length,32);assert.ok(starts.at(-1).vocabulary.some(w=>w.say==='Dutch'));h.start();h.api.answerChallenge(0);assert.equal(starts.at(-1).vocabulary.length,32);h.api.finishChallenge();h.api.setMode('quick');h.start();assert.equal(starts.at(-1).continuous,true);assert.equal(starts.at(-1).vocabulary.length,32);h.api.finishChallenge();});
 
-test('Safari returns once to native text recognition without altering saved practice or certificates',()=>{const saved=JSON.stringify({history:{0:[{score:90,heard:'nearly',date:'2026-11-01T00:00:00Z'}]},bestScores:{0:90},attempts:1,challenges:[{score:100,date:'2026-11-01T00:00:00Z',elapsedMs:25000}],profile:{name:'Test Student',class:'3',number:'12'}});const h=harness({navigator:{platform:'MacIntel',maxTouchPoints:5,userAgent:'Version/27.0 Mobile Safari/605.1.15'},saved:{'pronunciation-lab-recognition-safari':'local','pronunciation-lab-lesson7-v1':saved}});assert.equal(h.api.state().recognitionMode,'native');assert.equal(h.api.state().localSpeechInput.ready,false);assert.equal(h.getSaved('pronunciation-lab-recognition-safari'),'native');assert.equal(h.getSaved('pronunciation-lab-safari-native-default-v1'),'1');assert.equal(h.getSaved('pronunciation-lab-lesson7-v1'),saved);assert.match(h.nodes.get('#lesson-footer').textContent,/標準認識/);let connection;for(const w of words.slice(0,3)){let result;h.api.record(w,{onResult:r=>result=r});const rec=h.recognition();if(connection)assert.equal(rec,connection);connection=rec;rec.onresult({resultIndex:0,results:[[{transcript:w.say}]]});assert.equal(result.score,100);}});
-test('desktop Safari also returns to native recognition',()=>{const h=harness({navigator:{platform:'MacIntel',maxTouchPoints:0,userAgent:'Version/27.0 Safari/605.1.15'},saved:{'pronunciation-lab-recognition-desktop':'local'}});assert.equal(h.api.state().recognitionMode,'native');assert.equal(h.getSaved('pronunciation-lab-recognition-desktop'),'native');});
-test('later explicit choices, Chrome, standalone and Safari without native API retain their compatibility option',async()=>{const prepare=LocalSpeechInput.prototype.prepare;LocalSpeechInput.prototype.prepare=async function(){this.model={};};try{const ipad={platform:'MacIntel',maxTouchPoints:5,userAgent:'Version/27.0 Mobile Safari/605.1.15'};for(const config of [{navigator:ipad,key:'safari',saved:{'pronunciation-lab-safari-native-default-v1':'1'}},{navigator:{...ipad,userAgent:'CriOS/155.0 Mobile Safari/604.1'},key:'chrome'},{navigator:{...ipad,standalone:true},key:'standalone'},{navigator:ipad,key:'safari',nativeRecognition:false}]){const h=harness({...config,saved:{...config.saved,['pronunciation-lab-recognition-'+config.key]:'local'}});await new Promise(setImmediate);assert.equal(h.api.state().recognitionMode,'local');assert.match(h.nodes.get('#lesson-footer').textContent,/互換認識/);}}finally{LocalSpeechInput.prototype.prepare=prepare;}});
 
 
 test('native and compatibility practice score the displayed transcript identically',()=>{
@@ -222,4 +215,37 @@ test('compatibility sprint and rush award full credit for an exact transcript',(
   if(mode==='quick')assert.equal(c.correct,1);
   h.api.finishChallenge();
  }
+});
+
+
+test('every browser automatically uses compatibility despite saved native preferences',async()=>{
+ const original=LocalSpeechInput.prototype.prepare;
+ LocalSpeechInput.prototype.prepare=async function(){this.model={};};
+ try{
+  for(const navigator of [{},{userAgent:'Version/27.0 Mobile Safari/605.1.15',platform:'MacIntel',maxTouchPoints:5},{userAgent:'CriOS/155.0 Mobile Safari/604.1',platform:'MacIntel',maxTouchPoints:5},{standalone:true,platform:'MacIntel',maxTouchPoints:5}]){
+   const saved={'pronunciation-lab-recognition-safari':'native','pronunciation-lab-recognition-desktop':'native','pronunciation-lab-lesson7-v1':JSON.stringify({attempts:2,challenges:[],history:{0:[{score:100,heard:'nearly'}]},bestScores:{0:100}})};
+   const h=harness({navigator,saved,compatibilityStartup:true});
+   assert.equal(h.api.state().recognitionMode,'local');
+   await new Promise(setImmediate);
+   assert.equal(h.api.recognitionAvailable(),true);
+   assert.equal(h.recognition(),undefined);
+   assert.equal(h.api.state().data.attempts,2);
+   assert.equal(h.getSaved('pronunciation-lab-lesson7-v1'),saved['pronunciation-lab-lesson7-v1']);
+   assert.equal(h.nodes.has('#recognition-toggle'),false);
+   assert.equal(h.nodes.get('#recognition-notice').hidden,true);
+  }
+ }finally{LocalSpeechInput.prototype.prepare=original;}
+});
+test('failed automatic preparation stays local and can retry without enabling native recognition',async()=>{
+ const original=LocalSpeechInput.prototype.prepare;let calls=0;
+ LocalSpeechInput.prototype.prepare=async function(){if(++calls===1)throw Error('download failed');this.model={};};
+ try{
+  const h=harness({compatibilityStartup:true});await new Promise(setImmediate);
+  assert.equal(h.api.state().recognitionMode,'local');assert.equal(h.api.recognitionAvailable(),false);
+  assert.match(h.nodes.get('#recognition-notice-text').textContent,/download failed/);
+  assert.equal(h.nodes.get('#recognition-retry').hidden,false);
+  await h.nodes.get('#recognition-retry').onclick();
+  assert.equal(h.api.recognitionAvailable(),true);assert.equal(h.recognition(),undefined);
+  assert.equal(h.nodes.get('#recognition-notice').hidden,true);
+ }finally{LocalSpeechInput.prototype.prepare=original;}
 });

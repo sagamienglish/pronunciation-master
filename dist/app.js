@@ -69,7 +69,7 @@ function diagnostic(state){if(state.activity)practiceSignal({phase:state.activit
 const onBusy=session=>{active=session;updateMicUI(!!session);};
 const nativeSpeechInput=ipadMode?new IPadSpeechInput(Recognition,onBusy,diagnostic):new SpeechInput(Recognition,onBusy,undefined,phase=>practiceSignal({phase}));
 const localSpeechInput=new LocalSpeechInput(onBusy,practiceSignal);
-let speechInput=nativeSpeechInput,recognitionMode='native',recognitionLoading=false,recognitionRequest=0;
+let speechInput=localSpeechInput,recognitionMode='local',recognitionLoading=false;
 $('#show-speech-status').onclick=()=>{const details=$('#speech-diagnostics');details.open=true;details.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});};
 $('#release-mic').onclick=()=>{clearTimeout(quickRestart);speechInput.shutdown?.();micReady=false;if(['running','countdown'].includes(challenge?.phase))toast('接続を停止しました。回答ボタンで再接続できます。');};
 function cancelRecording(){speechInput.cancel();}
@@ -83,7 +83,7 @@ function updateMicUI(on){
  const q=$('#quick-mic');if(q){q.disabled=on||!recognitionAvailable();q.classList.toggle('recording',on);q.innerHTML=on?`${micSvg} 聞いています…`:`${micSvg} マイクを再開`;}
  if(on&&active?.button){active.button.classList.add('recording');active.button.disabled=true;}
 }
-function errorMessage(code){return ({'not-allowed':'マイク・音声認識が許可されていません。ブラウザの設定を確認してください。','service-not-allowed':'標準の音声認識が使えません。画面上部の「互換モード」をオンにしてください。','audio-capture':'マイクが見つかりません。他のアプリのマイク使用も確認してください。','network':'音声認識に接続できません。インターネット接続を確認してください。','local-not-ready':'画面上部の「互換モード」をオンにしてください。','local-mic-unavailable':'この開き方ではマイクを利用できません。ブラウザの設定、またはSafariの通常タブでお試しください。','local-recognition-failed':'互換モードで認識できませんでした。もう一度お試しください。','no-speech':'音声認識サービスで発話を検出できませんでした。もう一度マイクを押してください。','recognition-timeout':'音声認識から結果が返りませんでした。もう一度マイクを押してください。','no-result':'音声認識が結果を返さず終了しました。もう一度マイクを押してください。','aborted':'音声認識が中断されました。画面上部の「互換モード」をオンにしてください。'})[code]||'音声認識が終了しました。もう一度お試しください。';}
+function errorMessage(code){return ({'not-allowed':'マイク・音声認識が許可されていません。ブラウザの設定を確認してください。','service-not-allowed':'音声認識を利用できません。ブラウザの設定を確認してください。','audio-capture':'マイクが見つかりません。他のアプリのマイク使用も確認してください。','network':'音声認識に接続できません。インターネット接続を確認してください。','local-not-ready':'音声認識を準備中です。準備が終わるまでお待ちください。','local-mic-unavailable':'この開き方ではマイクを利用できません。ブラウザの設定、またはSafariの通常タブでお試しください。','local-recognition-failed':'互換モードで認識できませんでした。もう一度お試しください。','no-speech':'音声認識サービスで発話を検出できませんでした。もう一度マイクを押してください。','recognition-timeout':'音声認識から結果が返りませんでした。もう一度マイクを押してください。','no-result':'音声認識が結果を返さず終了しました。もう一度マイクを押してください。','aborted':'音声認識が中断されました。もう一度マイクを押してください。'})[code]||'音声認識が終了しました。もう一度お試しください。';}
 function record(w,{button,onResult,onError=toast}={}){
  if(speechInput.busy){toast('マイクの終了処理中です。少し待ってから押してください。');return;}
  stopMeter();stopSpeech();
@@ -99,13 +99,7 @@ function practiceSignal({kind,phase,level=0,samples}={}){
 }
 function browserContext(){const nav=window.navigator||{},ua=nav.userAgent||'';return !ipadMode?'desktop':nav.standalone||window.matchMedia('(display-mode: standalone)').matches?'standalone':/CriOS/.test(ua)?'chrome':/Version\/[\d.]+.*Safari/.test(ua)?'safari':'embedded';}
 function recognitionNotice(message=''){$('#recognition-notice').hidden=!message;$('#recognition-notice-text').textContent=message;}
-function renderRecognitionSettings(){
- const on=recognitionMode==='local'||recognitionLoading,button=$('#recognition-toggle');
- button.setAttribute('aria-checked',String(on));button.setAttribute('aria-busy',String(recognitionLoading));
- $('#recognition-toggle-state').textContent=recognitionLoading?'準備中':on?'ON':'OFF';
- button.title=on?'現在：端末内の互換認識。オフでブラウザ標準の文字起こしへ戻ります。':'現在：ブラウザ標準の文字起こし。Safariではこの設定を使います。';
- updateRecognitionFooter();
-}
+function renderRecognitionSettings(){updateRecognitionFooter();$('#recognition-retry').hidden=recognitionLoading||localSpeechInput.ready;}
 function updateRecognitionFooter(){$('#lesson-footer').textContent=lesson.name+' · '+(recognitionMode==='local'?'互換認識':'標準認識')+' · 得点は文字起こしとの一致度の目安です';}
 function useRecognitionMode(next){
  if(active||['running','countdown'].includes(challenge?.phase)){toast('チャレンジ・録音を終えてから切り替えてください。');return false;}
@@ -114,17 +108,14 @@ function useRecognitionMode(next){
  renderRecognitionSettings();updateMicUI(false);recognitionNotice('');return true;
 }
 async function enableCompatibility(){
- if(active||['running','countdown'].includes(challenge?.phase)){toast('チャレンジ・録音を終えてから切り替えてください。');return;}
- const request=++recognitionRequest;recognitionLoading=true;renderRecognitionSettings();
- recognitionNotice('互換モードを準備中です。保存済みデータを使います（未保存の場合は約45MB）。もう一度押すとオフに戻せます。');
- try{await localSpeechInput.prepare();if(request!==recognitionRequest)return;recognitionLoading=false;if(!useRecognitionMode('local'))recognitionNotice('互換モードの準備ができました。録音・チャレンジ終了後に、上部のスイッチをオンにしてください。');}
- catch(error){if(request===recognitionRequest)recognitionNotice(error.message||'互換モードを準備できませんでした。通信環境をご確認ください。');}
- finally{if(request===recognitionRequest){recognitionLoading=false;renderRecognitionSettings();}}
+ if(recognitionLoading||active||['running','countdown'].includes(challenge?.phase))return;
+ recognitionLoading=true;renderRecognitionSettings();updateMicUI(false);
+ recognitionNotice('音声認識を準備中です。初回は約45MBをダウンロードします。');
+ try{await localSpeechInput.prepare();recognitionNotice('');}
+ catch(error){recognitionNotice(error.message||'音声認識を準備できませんでした。通信環境を確認して、再試行してください。');}
+ finally{recognitionLoading=false;renderRecognitionSettings();updateMicUI(false);const begin=$('#begin-challenge');if(begin)begin.disabled=!micReady||!recognitionAvailable();}
 }
-$('#recognition-toggle').onclick=()=>{
- if(recognitionLoading){++recognitionRequest;recognitionLoading=false;useRecognitionMode('native');return;}
- if(recognitionMode==='local')useRecognitionMode('native');else return enableCompatibility();
-};
+$('#recognition-retry').onclick=enableCompatibility;
 function applyMeaning(){
  const hide=$('#hide-meaning').checked;$('#word-list').classList.remove('hide-meaning');
  $$('.meaning').forEach(el=>{el.style.visibility=hide?'hidden':'visible';el.setAttribute('aria-hidden',String(hide));});
@@ -141,7 +132,7 @@ function challengeSetup(message=''){clearTimeout(celebrationTimer);$('#perfect-c
 function testMicrophone(){if(speechInput.busy){$('#test-status').textContent='録音の終了処理中です。少し待ってから、もう一度押してください。';return;}if(meter){stopMeter();$('#test-mic').textContent='もう一度マイクを試す';$('#test-status').textContent=micReady?'マイクの音量確認ができました。スタートできます。':'声を検出できませんでした。もう一度お試しください。';return;}stopSpeech();if(ipadMode)speechInput.shutdown();micReady=false;$('#begin-challenge').disabled=true;$('#meter-panel').hidden=false;$('#test-status').textContent='マイクの使用を許可し、声を出してください。';$('#test-mic').textContent='テストを終了';
  meter=new MicMeter(level=>{const value=Math.min(100,Math.round(level*450));$('#meter-state').textContent=level>.018?'音を検出しました ✓':micReady?'確認OK · 現在は静かです':'音を待っています…';$('#mic-level').style.width=`${value}%`;$('#mic-meter').setAttribute('aria-valuenow',value);if(level>.018){micReady=true;$('#meter-state').textContent='音を検出しました ✓';$('#begin-challenge').disabled=!recognitionAvailable();$('#test-status').textContent=recognitionAvailable()?'マイクOK！ バーが動いたらスタートできます。':'音量は確認できましたが、音声認識は使えません。対応するブラウザで開いてください。';}},message=>{meter=null;$('#test-mic').textContent='もう一度マイクを試す';$('#test-status').textContent=message;});meter.start();meterTimeout=setTimeout(()=>{if(meter){stopMeter();$('#test-mic').textContent='もう一度マイクを試す';if(!micReady)$('#test-status').textContent='音が検出されませんでした。マイクの設定を確認し、もう一度お試しください。';}},15000);
 }
-function startChallenge(){if(!micReady||active||['running','countdown'].includes(challenge?.phase))return;stopMeter();stopSpeech();cancelRecording();document.body.classList.add('challenge-running');const quick=mode==='quick';challenge={type:quick?'quick':'sprint',phase:'countdown',items:sample(words,quick?words.length:10),results:Array(quick?words.length:10).fill(null),index:0,correct:0,countdownEnd:Date.now()+3000};renderCountdown();tick=setInterval(updateCountdown,100);}
+function startChallenge(){if(!micReady||!recognitionAvailable()||active||['running','countdown'].includes(challenge?.phase))return;stopMeter();stopSpeech();cancelRecording();document.body.classList.add('challenge-running');const quick=mode==='quick';challenge={type:quick?'quick':'sprint',phase:'countdown',items:sample(words,quick?words.length:10),results:Array(quick?words.length:10).fill(null),index:0,correct:0,countdownEnd:Date.now()+3000};renderCountdown();tick=setInterval(updateCountdown,100);}
 function renderCountdown(){const overlay=document.createElement('div');overlay.id='countdown-overlay';overlay.className='countdown';overlay.innerHTML='<span>GET READY</span><strong id="countdown-number" role="status" aria-live="assertive">3</strong><span>声で、自分のベストを超えよう。</span><button id="cancel-countdown" class="secondary">キャンセル</button>';document.body.append(overlay);$('#cancel-countdown').onclick=()=>{clearRound();challengeSetup('準備ができたら、もう一度スタート。');};}
 function updateCountdown(){if(challenge?.phase!=='countdown')return;const remaining=challenge.countdownEnd-Date.now();if(remaining<=0){clearInterval(tick);$('#countdown-overlay')?.remove();challenge.phase='running';challenge.deadline=Date.now()+60000;challenge.startedAt=new Date().toISOString();if(challenge.type==='quick'){quickBoard();listenQuick();}else challengeBoard();tick=setInterval(updateTimer,100);updateTimer();return;}const n=String(Math.ceil(remaining/1000));if($('#countdown-number').textContent!==n){$('#countdown-number').textContent=n;$('#countdown-number').style.animation='none';void $('#countdown-number').offsetWidth;$('#countdown-number').style.animation='';}}
 function updateTimer(){if(challenge?.phase!=='running')return;const remaining=Math.max(0,challenge.deadline-Date.now());if(!remaining){finishChallenge();return;}const secs=Math.ceil(remaining/1000);$('#time').textContent=secs===60?'1:00':`0:${String(secs).padStart(2,'0')}`;$('#time').classList.toggle('urgent',secs<=10);$('#time-bar').style.width=`${remaining/60000*100}%`;}
@@ -263,11 +254,5 @@ function renderChallengeHistory(){
 }
 $('#history-mode-tabs').onclick=e=>{const b=e.target.closest('[data-history-mode]');if(b){historyType=b.dataset.historyMode==='quick'?'quick':'sprint';renderChallengeHistory();}};
 
-const context=browserContext();if(ipadMode&&context!=='safari')recognitionNotice('標準認識が使えない場合は、画面上部の「互換モード」をオンにしてください。');
-// One-time return to the working native Safari mode; future explicit choices remain valid.
-const safariNativeKey='pronunciation-lab-safari-native-default-v1';
-const nav=window.navigator||{},normalSafari=/Version\/[\d.]+.*Safari/.test(nav.userAgent||'')&&!/CriOS|FxiOS|EdgiOS|Chrome|Chromium|Edg\//.test(nav.userAgent||'')&&!nav.standalone&&!window.matchMedia('(display-mode: standalone)').matches;
-let restoreLocal=false;try{restoreLocal=localStorage.getItem('pronunciation-lab-recognition-'+context)==='local';}catch{}
-if(normalSafari&&Recognition){let migrated=false;try{migrated=localStorage.getItem(safariNativeKey)==='1';}catch{}if(!migrated){restoreLocal=false;try{localStorage.setItem('pronunciation-lab-recognition-'+context,'native');localStorage.setItem(safariNativeKey,'1');}catch{}}}
-if(restoreLocal)enableCompatibility();
+enableCompatibility();
 renderRecognitionSettings();
