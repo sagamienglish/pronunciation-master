@@ -72,6 +72,8 @@ $('#show-speech-status').onclick=()=>{const details=$('#speech-diagnostics');det
 $('#release-mic').onclick=()=>{clearTimeout(quickRestart);speechInput.shutdown?.();micReady=false;if(['running','countdown'].includes(challenge?.phase))toast('接続を停止しました。回答ボタンで再接続できます。');};
 function cancelRecording(){speechInput.cancel();}
 function updateMicUI(on){
+ $('#show-speech-status').hidden=recognitionMode==='local';
+ if(recognitionMode==='local')$('#ipad-state').textContent=localSpeechInput.ready?(on?'互換モード：音声を端末内で認識中':'互換モード：次の発音を受付'):'互換モード：認識データを準備中';
  $$('.practice-input').forEach(el=>{el.dataset.kind=recognitionMode==='local'?'wave':'activity';el.querySelector('path').setAttribute('d','M0 12 L64 12');el.querySelector('small').textContent='待機';el.setAttribute('aria-label','入力待機');});
  if(on)practiceSignal({phase:'connecting'});
  $$('[data-action="record"]').forEach(b=>{b.disabled=on||!recognitionAvailable();b.classList.remove('recording');});
