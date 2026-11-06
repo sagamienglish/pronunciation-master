@@ -1,0 +1,6 @@
+import test from 'node:test';
+import assert from 'node:assert/strict';
+import {phoneChecks,comparePhones} from '../dist/phoneme-check.js';
+test('full phoneme equality is required for 100; g glyph spelling is equivalent',()=>{const expected=phoneChecks.sunglasses.phones;assert.equal(comparePhones(expected,expected).similarity,100);assert.equal(comparePhones(expected,expected.map(x=>x==='ɡ'?'g':x)).similarity,100);assert.ok(comparePhones(expected,['s','a','ŋ','ɡ','ɯ','ɾ','a','s','ɯ']).similarity<100);assert.ok(comparePhones(expected,['s','ʌ','ŋ','ɡ','l','æ','s','ɯ']).similarity<100);});
+test('inserted vowels and missing sounds remain explicit in the alignment',()=>{const a=comparePhones(['s','l'],['s','ɯ','l']);assert.equal(a.alignment[1].expected,'—');assert.equal(a.alignment[1].heard,'ɯ');assert.ok(a.similarity<100);const b=comparePhones(['s','l'],['s']);assert.equal(b.alignment[1].heard,'—');assert.equal(comparePhones(['s'],[]).similarity,0);});
+test('English and Japanese synthesized sunglasses remain distinct at the phoneme level',()=>{const target=phoneChecks.sunglasses.phones,en=comparePhones(target,['s','ʌ','ŋ','g','l','æ','s','ɪ','s']),ja=comparePhones(target,['s','ʌ','m','g','ʊ','d','u','s']);assert.ok(en.similarity>ja.similarity);assert.ok(ja.similarity<100);});
