@@ -39,7 +39,7 @@ function showPracticeScore(card,result){const score=card.querySelector('.practic
 function historyHtml(w){const h=(data.history[w.id]||[]).slice(-5);return h.length?`<small>直近</small>${h.map(r=>`<span class="score">${r.score}</span>`).join('<span class="arrow">→</span>')}`:'';}
 function filteredWords(){return practiceOrder((mode==='review'?weakWords():words).filter(w=>!part||w.part===part),data,scoreOrder);}
 function list(){const items=filteredWords();$('#list-title').textContent=mode==='review'?'苦手な単語を復習':'単語を練習';
- $('#word-list').innerHTML=items.length?items.map(w=>{const h=data.history[w.id]||[],last=h.at(-1),best=h.length?data.bestScores[w.id]:null;return `<article class="word-card" data-id="${w.id}"><div class="word-meta"><span>PART ${w.part} · ${w.pos}</span><span class="badge ${best>=90?'good':''}">${best===null?'未練習':`BEST ${best}`}</span></div><h3 lang="en" class="${w.en.length>18?'long':''}">${escape(w.en)}</h3><div class="word-reading"><p class="meaning" title="${escape(w.ja)}">${escape(w.ja)}</p><span class="phonetic" lang="en-fonipa" aria-label="発音記号" title="米音を基準にした発音の目安">/${escape(pronunciationFor(w.en))}/</span></div><div class="word-actions"><button class="icon" data-action="listen" aria-label="${escape(w.en)}のお手本を聞く">${speakerSvg}</button><span class="practice-input" data-kind="activity" aria-label="入力待機"><svg viewBox="0 0 64 24" aria-hidden="true"><path d="M0 12 L64 12"/></svg><small>待機</small></span><button class="icon mic" data-action="record" ${!recognitionAvailable()?'disabled':''} aria-label="${escape(w.en)}を発音する">${micSvg}${practiceFace()}</button></div><div class="practice-score" aria-live="polite" aria-atomic="true"></div><div class="history" aria-label="直近5回の得点">${historyHtml(w)}</div><div class="card-result" aria-live="polite" title="${last?escape(displayHeard(last.heard)):''}">${last?`認識：${escape(displayHeard(last.heard))}`:''}</div></article>`;}).join(''):`<div class="empty"><h3>${mode==='review'?'復習する単語はありません':'単語が見つかりません'}</h3><p>${mode==='review'?'最後の練習が90点未満の単語が並びます。':'Partを変えてみてください。'}</p></div>`;
+ $('#word-list').innerHTML=items.length?items.map(w=>{const h=data.history[w.id]||[],last=h.at(-1),best=h.length?data.bestScores[w.id]:null;return `<article class="word-card" data-id="${w.id}"><div class="word-meta"><span>PART ${w.part} · ${w.pos}</span><span class="badge ${best>=90?'good':''}">${best===null?'未練習':`BEST ${best}`}</span></div><h3 lang="en" class="${w.en.length>18?'long':''}">${escape(w.en)}</h3><div class="word-reading"><p class="meaning" title="${escape(w.ja)}">${escape(w.ja)}</p><span class="phonetic" lang="en-fonipa" aria-label="発音記号" title="米音を基準にした発音の目安">/${escape(pronunciationFor(w.en))}/</span></div><div class="word-actions"><button class="icon" data-action="listen" aria-label="${escape(w.en)}のお手本を聞く">${speakerSvg}</button><span class="practice-input" data-kind="activity" aria-label="入力待機"><svg viewBox="0 0 64 24" aria-hidden="true"><path d="M0 12 L64 12"/></svg></span><button class="icon mic" data-action="record" ${!recognitionAvailable()?'disabled':''} aria-label="${escape(w.en)}を発音する">${micSvg}${practiceFace()}</button></div><div class="practice-score" aria-live="polite" aria-atomic="true"></div><div class="history" aria-label="直近5回の得点">${historyHtml(w)}</div><div class="card-result" aria-live="polite" title="${last?escape(displayHeard(last.heard)):''}">${last?`認識：${escape(displayHeard(last.heard))}`:''}</div></article>`;}).join(''):`<div class="empty"><h3>${mode==='review'?'復習する単語はありません':'単語が見つかりません'}</h3><p>${mode==='review'?'最後の練習が90点未満の単語が並びます。':'Partを変えてみてください。'}</p></div>`;
  updateSortButton();$('#word-count').textContent=`${items.length}語を表示`;applyMeaning();updateMicUI(!!active);
 }
 function updateSortButton(){const button=$('#sort-words');button.setAttribute('aria-pressed',String(scoreOrder));button.innerHTML=`<span aria-hidden="true">⇅</span> ${scoreOrder?'教材順に戻す':'並べ替え'}`;button.title=scoreOrder?'教材に載っている順番に戻す':'未練習 → BEST得点が低い語 → 高い語';}
@@ -67,21 +67,21 @@ function diagnostic(state){if(state.activity)practiceSignal({phase:state.activit
 const onBusy=session=>{active=session;updateMicUI(!!session);};
 const nativeSpeechInput=ipadMode?new IPadSpeechInput(Recognition,onBusy,diagnostic):new SpeechInput(Recognition,onBusy,undefined,phase=>practiceSignal({phase}));
 const localSpeechInput=new LocalSpeechInput(onBusy,practiceSignal);
-let speechInput=nativeSpeechInput,recognitionMode='native';
+let speechInput=nativeSpeechInput,recognitionMode='native',recognitionLoading=false,recognitionRequest=0;
 $('#show-speech-status').onclick=()=>{const details=$('#speech-diagnostics');details.open=true;details.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});};
 $('#release-mic').onclick=()=>{clearTimeout(quickRestart);speechInput.shutdown?.();micReady=false;if(['running','countdown'].includes(challenge?.phase))toast('接続を停止しました。回答ボタンで再接続できます。');};
 function cancelRecording(){speechInput.cancel();}
 function updateMicUI(on){
  $('#show-speech-status').hidden=recognitionMode==='local';
  if(recognitionMode==='local')$('#ipad-state').textContent=localSpeechInput.ready?(on?'互換モード：音声を端末内で認識中':'互換モード：次の発音を受付'):'互換モード：認識データを準備中';
- $$('.practice-input').forEach(el=>{el.dataset.kind=recognitionMode==='local'?'wave':'activity';el.querySelector('path').setAttribute('d','M0 12 L64 12');el.querySelector('small').textContent='待機';el.setAttribute('aria-label','入力待機');});
+ $$('.practice-input').forEach(el=>{el.dataset.kind=recognitionMode==='local'?'wave':'activity';el.querySelector('path').setAttribute('d','M0 12 L64 12');el.setAttribute('aria-label','入力待機');});
  if(on)practiceSignal({phase:'connecting'});
  $$('[data-action="record"]').forEach(b=>{b.disabled=on||!recognitionAvailable();b.classList.remove('recording');});
  $$('[data-challenge-record]').forEach(b=>{b.disabled=on||!recognitionAvailable();b.classList.remove('recording');});
  const q=$('#quick-mic');if(q){q.disabled=on||!recognitionAvailable();q.classList.toggle('recording',on);q.innerHTML=on?`${micSvg} 聞いています…`:`${micSvg} マイクを再開`;}
  if(on&&active?.button){active.button.classList.add('recording');active.button.disabled=true;}
 }
-function errorMessage(code){return ({'not-allowed':'マイク・音声認識が許可されていません。ブラウザの設定を確認してください。','service-not-allowed':'標準の音声認識が使えません。「音声認識の設定」から互換モードをお試しください。','audio-capture':'マイクが見つかりません。他のアプリのマイク使用も確認してください。','network':'音声認識に接続できません。インターネット接続を確認してください。','local-not-ready':'音声認識の設定から、互換モードを準備してください。','local-mic-unavailable':'この開き方ではマイクを利用できません。ブラウザの設定、またはSafariの通常タブでお試しください。','local-recognition-failed':'互換モードで認識できませんでした。もう一度お試しください。','no-speech':'音声認識サービスで発話を検出できませんでした。もう一度マイクを押してください。','recognition-timeout':'音声認識から結果が返りませんでした。もう一度マイクを押してください。','no-result':'音声認識が結果を返さず終了しました。もう一度マイクを押してください。','aborted':'音声認識が中断されました。通常タブ以外では「音声認識の設定」から互換モードをお試しください。'})[code]||'音声認識が終了しました。もう一度お試しください。';}
+function errorMessage(code){return ({'not-allowed':'マイク・音声認識が許可されていません。ブラウザの設定を確認してください。','service-not-allowed':'標準の音声認識が使えません。画面上部の「互換モード」をオンにしてください。','audio-capture':'マイクが見つかりません。他のアプリのマイク使用も確認してください。','network':'音声認識に接続できません。インターネット接続を確認してください。','local-not-ready':'画面上部の「互換モード」をオンにしてください。','local-mic-unavailable':'この開き方ではマイクを利用できません。ブラウザの設定、またはSafariの通常タブでお試しください。','local-recognition-failed':'互換モードで認識できませんでした。もう一度お試しください。','no-speech':'音声認識サービスで発話を検出できませんでした。もう一度マイクを押してください。','recognition-timeout':'音声認識から結果が返りませんでした。もう一度マイクを押してください。','no-result':'音声認識が結果を返さず終了しました。もう一度マイクを押してください。','aborted':'音声認識が中断されました。画面上部の「互換モード」をオンにしてください。'})[code]||'音声認識が終了しました。もう一度お試しください。';}
 function record(w,{button,onResult,onError=toast}={}){
  if(speechInput.busy){toast('マイクの終了処理中です。少し待ってから押してください。');return;}
  stopMeter();stopSpeech();
@@ -91,30 +91,34 @@ function recognitionAvailable(){return recognitionMode==='local'?localSpeechInpu
 function practiceSignal({kind,phase,level=0,samples}={}){
  const el=active?.button?.closest?.('.word-card')?.querySelector('.practice-input');if(!el)return;
  const measured=kind==='wave',label=measured?(level>.008?'音を検出':'静か'):{connecting:'接続中',audio:'受付中',voice:'発話検出',processing:'認識中'}[phase]||'受付中';
- el.dataset.kind=measured?'wave':'activity';el.dataset.phase=phase||'audio';el.querySelector('small').textContent=label;
+ el.dataset.kind=measured?'wave':'activity';el.dataset.phase=phase||'audio';
  el.querySelector('path').setAttribute('d',measured?waveformPath(samples):'M0 12 L64 12');
  el.title=measured?'マイクから測定した音の波形':'音声認識サービスの状態です。音量の波形ではありません。';el.setAttribute('aria-label',label);
 }
 function browserContext(){const nav=window.navigator||{},ua=nav.userAgent||'';return !ipadMode?'desktop':nav.standalone||window.matchMedia('(display-mode: standalone)').matches?'standalone':/CriOS/.test(ua)?'chrome':/Version\/[\d.]+.*Safari/.test(ua)?'safari':'embedded';}
 function recognitionNotice(message=''){$('#recognition-notice').hidden=!message;$('#recognition-notice-text').textContent=message;}
 function renderRecognitionSettings(){
- $('#recognition-current').textContent=recognitionMode==='local'?'現在：互換認識（端末内で処理）':'現在：ブラウザ標準の音声認識';
- $('#recognition-native').disabled=recognitionMode==='native';$('#recognition-prepare').textContent=localSpeechInput.ready?'互換モードを使う':'互換モードを準備する（初回 約45MB）';
+ const on=recognitionMode==='local'||recognitionLoading,button=$('#recognition-toggle');
+ button.setAttribute('aria-checked',String(on));button.setAttribute('aria-busy',String(recognitionLoading));
+ $('#recognition-toggle-state').textContent=recognitionLoading?'準備中':on?'ON':'OFF';
 }
 function useRecognitionMode(next){
  if(active||['running','countdown'].includes(challenge?.phase)){toast('チャレンジ・録音を終えてから切り替えてください。');return false;}
- speechInput.shutdown?.();recognitionMode=next;speechInput=next==='local'?localSpeechInput:nativeSpeechInput;
+ if(next!==recognitionMode){speechInput.shutdown?.();recognitionMode=next;speechInput=next==='local'?localSpeechInput:nativeSpeechInput;}
  try{localStorage.setItem('pronunciation-lab-recognition-'+browserContext(),next);}catch{}
- renderRecognitionSettings();updateMicUI(false);recognitionNotice(next==='local'?'互換モード：音声は端末内で認識します。':browserContext()==='safari'||!ipadMode?'':'この開き方で標準認識が使えない場合は、互換モードを準備してください。');return true;
+ renderRecognitionSettings();updateMicUI(false);recognitionNotice('');return true;
 }
-function openRecognitionSettings(){if(['running','countdown'].includes(challenge?.phase)){toast('チャレンジを終えてから設定を開いてください。');return;}renderRecognitionSettings();$('#recognition-dialog').showModal();}
-$('#recognition-settings').onclick=openRecognitionSettings;$('#recognition-notice-settings').onclick=openRecognitionSettings;
-$('#recognition-native').onclick=()=>{if(useRecognitionMode('native'))$('#recognition-prepare-status').textContent='ブラウザ標準の音声認識に切り替えました。';};
-$('#recognition-prepare').onclick=async()=>{
- const button=$('#recognition-prepare');button.disabled=true;$('#recognition-prepare-status').textContent='準備中です。初回は約45MBを読み込みます。';
- try{await localSpeechInput.prepare();if(useRecognitionMode('local'))$('#recognition-prepare-status').textContent='準備できました。設定を閉じて、マイクボタンを押してください。';else $('#recognition-prepare-status').textContent='準備できました。録音終了後にもう一度このボタンで切り替えてください。';}
- catch(error){$('#recognition-prepare-status').textContent=error.message||'準備できませんでした。通信環境をご確認ください。';}
- finally{button.disabled=false;renderRecognitionSettings();}
+async function enableCompatibility(){
+ if(active||['running','countdown'].includes(challenge?.phase)){toast('チャレンジ・録音を終えてから切り替えてください。');return;}
+ const request=++recognitionRequest;recognitionLoading=true;renderRecognitionSettings();
+ recognitionNotice('互換モードを準備中です。初回は約45MBを読み込みます。もう一度押すとオフに戻せます。');
+ try{await localSpeechInput.prepare();if(request!==recognitionRequest)return;recognitionLoading=false;if(!useRecognitionMode('local'))recognitionNotice('互換モードの準備ができました。録音・チャレンジ終了後に、上部のスイッチをオンにしてください。');}
+ catch(error){if(request===recognitionRequest)recognitionNotice(error.message||'互換モードを準備できませんでした。通信環境をご確認ください。');}
+ finally{if(request===recognitionRequest){recognitionLoading=false;renderRecognitionSettings();}}
+}
+$('#recognition-toggle').onclick=()=>{
+ if(recognitionLoading){++recognitionRequest;recognitionLoading=false;useRecognitionMode('native');return;}
+ if(recognitionMode==='local')useRecognitionMode('native');else return enableCompatibility();
 };
 function applyMeaning(){
  const hide=$('#hide-meaning').checked;$('#word-list').classList.remove('hide-meaning');
@@ -254,5 +258,6 @@ function renderChallengeHistory(){
 }
 $('#history-mode-tabs').onclick=e=>{const b=e.target.closest('[data-history-mode]');if(b){historyType=b.dataset.historyMode==='quick'?'quick':'sprint';renderChallengeHistory();}};
 
-const context=browserContext();if(ipadMode&&context!=='safari')recognitionNotice('この開き方で標準認識が使えない場合は、互換モードを準備してください。');
-try{if(localStorage.getItem('pronunciation-lab-recognition-'+context)==='local'){recognitionMode='local';speechInput=localSpeechInput;updateMicUI(false);recognitionNotice('互換モードのデータを読み込んでいます…');$('#recognition-prepare').onclick();}}catch{}
+const context=browserContext();if(ipadMode&&context!=='safari')recognitionNotice('標準認識が使えない場合は、画面上部の「互換モード」をオンにしてください。');
+try{if(localStorage.getItem('pronunciation-lab-recognition-'+context)==='local')enableCompatibility();}catch{}
+renderRecognitionSettings();
