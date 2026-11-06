@@ -1,4 +1,4 @@
-import {LocalSpeechInput,waveformPath} from './local-speech.js?v=23';
+import {LocalSpeechInput,waveformPath} from './local-speech.js?v=25';
 import {practiceOrder} from './practice-order.js?v=18';
 import {pronunciationFor} from './phonetics.js?v=19';
 import {certificateRank} from './awards.js?v=15';
@@ -85,7 +85,7 @@ function errorMessage(code){return ({'not-allowed':'マイク・音声認識が�
 function record(w,{button,onResult,onError=toast}={}){
  if(speechInput.busy){toast('マイクの終了処理中です。少し待ってから押してください。');return;}
  stopMeter();stopSpeech();
- speechInput.start({button,onTranscript:heard=>onResult({score:scoreWord(w.say,heard),heard,date:new Date().toISOString()}),onError:code=>onError(errorMessage(code),code)});
+ speechInput.start({button,vocabulary:words,onTranscript:heard=>onResult({score:scoreWord(w.say,heard),heard,date:new Date().toISOString()}),onError:code=>onError(errorMessage(code),code)});
 }
 function recognitionAvailable(){return recognitionMode==='local'?localSpeechInput.ready:!!Recognition;}
 function practiceSignal({kind,phase,level=0,samples}={}){
@@ -111,7 +111,7 @@ function useRecognitionMode(next){
 async function enableCompatibility(){
  if(active||['running','countdown'].includes(challenge?.phase)){toast('チャレンジ・録音を終えてから切り替えてください。');return;}
  const request=++recognitionRequest;recognitionLoading=true;renderRecognitionSettings();
- recognitionNotice('互換モードを準備中です。初回は約45MBを読み込みます。もう一度押すとオフに戻せます。');
+ recognitionNotice('互換モードを準備中です。保存済みデータを使います（未保存の場合は約45MB）。もう一度押すとオフに戻せます。');
  try{await localSpeechInput.prepare();if(request!==recognitionRequest)return;recognitionLoading=false;if(!useRecognitionMode('local'))recognitionNotice('互換モードの準備ができました。録音・チャレンジ終了後に、上部のスイッチをオンにしてください。');}
  catch(error){if(request===recognitionRequest)recognitionNotice(error.message||'互換モードを準備できませんでした。通信環境をご確認ください。');}
  finally{if(request===recognitionRequest){recognitionLoading=false;renderRecognitionSettings();}}
@@ -175,7 +175,7 @@ function listenQuick(){
  if(Date.now()>=c.deadline){finishQuick();return;}
  if(speechInput.busy){$('#round-status').textContent='マイクの終了を待っています。少し待ってから再開してください。';return;}
  clearTimeout(quickRestart);stopMeter();stopSpeech();
- speechInput.start({continuous:true,button:$('#quick-mic'),onTranscript:heard=>{
+ speechInput.start({continuous:true,vocabulary:words,button:$('#quick-mic'),onTranscript:heard=>{
   if(challenge!==c||c.phase!=='running')return;if(Date.now()>=c.deadline){finishQuick();return;}
   if(c.index>=c.items.length||Date.now()<(c.blockUntil||0))return;
   if(scoreWord('skip',heard)===100){skipQuick(true);return;}
