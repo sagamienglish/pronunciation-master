@@ -1,7 +1,7 @@
 // Result and service-disconnect are separate events. Never overlap native sessions.
 export class SpeechInput {
-  constructor(Recognition,onBusy=()=>{},clock={setTimeout:(fn,ms)=>setTimeout(fn,ms),clearTimeout:id=>clearTimeout(id)}){
-    this.Recognition=Recognition;this.onBusy=onBusy;this.clock=clock;this.session=null;
+  constructor(Recognition,onBusy=()=>{},clock={setTimeout:(fn,ms)=>setTimeout(fn,ms),clearTimeout:id=>clearTimeout(id)},onActivity=()=>{}){
+    this.Recognition=Recognition;this.onBusy=onBusy;this.onActivity=onActivity;this.clock=clock;this.session=null;
   }
   get busy(){return !!this.session;}
   start({continuous=false,onTranscript,onError=()=>{},button}={}){
@@ -14,7 +14,7 @@ export class SpeechInput {
     const arm=(ms,fn)=>{this.clock.clearTimeout(s.timer);s.timer=this.clock.setTimeout(fn,ms);};
     const finish=()=>{
       if(!alive())return;this.clock.clearTimeout(s.timer);this.clock.clearTimeout(s.ending);
-      rec.onstart=rec.onresult=rec.onerror=rec.onend=null;this.session=null;this.onBusy(null);
+      rec.onstart=rec.onaudiostart=rec.onspeechstart=rec.onspeechend=rec.onresult=rec.onerror=rec.onend=null;this.session=null;this.onBusy(null);
       if(s.cancelled)return;
       if(s.result&&!continuous)onTranscript(s.result);
       else onError(s.error||(continuous?'ended':'no-speech'));
@@ -23,6 +23,7 @@ export class SpeechInput {
     s.cancel=()=>{s.cancelled=true;this.clock.clearTimeout(s.timer);abortWithFallback();};
     const watchdog=()=>arm(9000,()=>{s.error='no-speech';abortWithFallback();});
     rec.onstart=()=>{if(alive())this.onBusy({...s,listening:true});};
+    rec.onaudiostart=()=>{if(alive())this.onActivity('audio');};rec.onspeechstart=()=>{if(alive())this.onActivity('voice');};rec.onspeechend=()=>{if(alive())this.onActivity('processing');};
     rec.onresult=e=>{
       if(!alive()||s.cancelled)return;
       for(let i=e.resultIndex??0;i<e.results.length;i++){
