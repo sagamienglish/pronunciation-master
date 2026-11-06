@@ -101,7 +101,10 @@ function renderRecognitionSettings(){
  const on=recognitionMode==='local'||recognitionLoading,button=$('#recognition-toggle');
  button.setAttribute('aria-checked',String(on));button.setAttribute('aria-busy',String(recognitionLoading));
  $('#recognition-toggle-state').textContent=recognitionLoading?'準備中':on?'ON':'OFF';
+ button.title=on?'現在：端末内の互換認識。オフでブラウザ標準の文字起こしへ戻ります。':'現在：ブラウザ標準の文字起こし。Safariではこの設定を使います。';
+ updateRecognitionFooter();
 }
+function updateRecognitionFooter(){$('#lesson-footer').textContent=lesson.name+' · '+(recognitionMode==='local'?'互換認識':'標準認識')+' · 得点は文字起こしとの一致度の目安です';}
 function useRecognitionMode(next){
  if(active||['running','countdown'].includes(challenge?.phase)){toast('チャレンジ・録音を終えてから切り替えてください。');return false;}
  if(next!==recognitionMode){speechInput.shutdown?.();recognitionMode=next;speechInput=next==='local'?localSpeechInput:nativeSpeechInput;}
@@ -228,7 +231,7 @@ function renderLessonDetails(){
  $('#favicon').setAttribute('href',`icons/favicon-${lesson.theme}.png`);
  document.title=`${lesson.name} — Pronunciation Lab`;
  $('#header-tag').textContent=`LESSON ${String(lesson.id).padStart(2,'0')} · VOCABULARY`;
- $('#lesson-footer').textContent=`${lesson.name} · 得点は認識された文字との一致度の目安です`;
+ updateRecognitionFooter();
  $('#part-tabs').innerHTML=[0,1,2,3].map(p=>`<button type="button" data-part="${p}" class="${part===p?'selected':''}" aria-pressed="${part===p}">${p?'Part '+p:'すべて'} <span>${p?words.filter(w=>w.part===p).length:words.length}</span></button>`).join('');
  $('#help-quick-count').textContent=words.length;
 }
@@ -259,5 +262,10 @@ function renderChallengeHistory(){
 $('#history-mode-tabs').onclick=e=>{const b=e.target.closest('[data-history-mode]');if(b){historyType=b.dataset.historyMode==='quick'?'quick':'sprint';renderChallengeHistory();}};
 
 const context=browserContext();if(ipadMode&&context!=='safari')recognitionNotice('標準認識が使えない場合は、画面上部の「互換モード」をオンにしてください。');
-try{if(localStorage.getItem('pronunciation-lab-recognition-'+context)==='local')enableCompatibility();}catch{}
+// One-time return to the working native Safari mode; future explicit choices remain valid.
+const safariNativeKey='pronunciation-lab-safari-native-default-v1';
+const nav=window.navigator||{},normalSafari=/Version\/[\d.]+.*Safari/.test(nav.userAgent||'')&&!/CriOS|FxiOS|EdgiOS|Chrome|Chromium|Edg\//.test(nav.userAgent||'')&&!nav.standalone&&!window.matchMedia('(display-mode: standalone)').matches;
+let restoreLocal=false;try{restoreLocal=localStorage.getItem('pronunciation-lab-recognition-'+context)==='local';}catch{}
+if(normalSafari&&Recognition){let migrated=false;try{migrated=localStorage.getItem(safariNativeKey)==='1';}catch{}if(!migrated){restoreLocal=false;try{localStorage.setItem('pronunciation-lab-recognition-'+context,'native');localStorage.setItem(safariNativeKey,'1');}catch{}}}
+if(restoreLocal)enableCompatibility();
 renderRecognitionSettings();
