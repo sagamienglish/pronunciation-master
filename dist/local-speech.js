@@ -1,5 +1,13 @@
 // Optional, fully local Vosk recognition. Native Safari capture is not changed.
 export function waveformPath(samples=[]){if(!samples.length)return 'M0 12 L64 12';return samples.map((v,i)=>`${i?'L':'M'}${(i*64/(samples.length-1||1)).toFixed(1)} ${(12-Math.max(-1,Math.min(1,v*3))*10).toFixed(1)}`).join(' ');}
+// Context includes the whole lesson, not only the answer on the selected card.
+// [unk] allows unrelated speech instead of forcing a lesson word.
+export function lessonGrammar(words=[]){
+ const variants={microplastic:['micro plastic'],esports:['e sports'],biofuel:['bio fuel'],relearn:['re learn']};
+ const phrases=words.flatMap(word=>{const text=(typeof word==='string'?word:word.say||word.en||'').toLowerCase().replace(/-/g,' ').replace(/[^a-z' ]/g,' ').replace(/\s+/g,' ').trim();return [text,...(variants[text]||[])];}).filter(Boolean);
+ return JSON.stringify([...new Set([...phrases,'skip','[unk]'])]);
+}
+export function localTranscript(raw=''){const clean=raw.replace(/\[unk\]/g,' ').replace(/\s+/g,' ').trim();return clean||raw.trim();}
 export class LocalSpeechInput {
  constructor(onBusy=()=>{},onSignal=()=>{},env={}){this.onBusy=onBusy;this.onSignal=onSignal;this.env=env;this.session=null;this.model=null;this.loading=null;}
  get busy(){return !!this.session;}
@@ -14,7 +22,7 @@ export class LocalSpeechInput {
    catch(error){model.terminate();throw error;}
   })();try{await this.loading;}finally{this.loading=null;}
  }
- start({continuous=false,onTranscript,onError=()=>{},button}={}){
+ start({continuous=false,vocabulary=[],onTranscript,onError=()=>{},button}={}){
   if(this.session)return false;if(!this.model){onError('local-not-ready');return false;}
   const s={continuous,onTranscript,onError,button,ctx:null,stream:null,processor:null,source:null,gain:null,rec:null,watch:null,settle:null,flushing:false};this.session=s;this.onBusy(s);
   const alive=()=>this.session===s;
@@ -28,10 +36,10 @@ export class LocalSpeechInput {
     s.ctx=new Context();const resumed=s.ctx.resume();
     s.stream=await media.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1},video:false});await resumed;
     if(!alive()){s.stream.getTracks().forEach(track=>track.stop());return;}
-    const rec=s.rec=new this.model.KaldiRecognizer(s.ctx.sampleRate);
+    const rec=s.rec=new this.model.KaldiRecognizer(s.ctx.sampleRate,vocabulary.length?lessonGrammar(vocabulary):undefined);
     rec.on('error',()=>fail('local-recognition-failed'));
     rec.on('result',message=>{
-     if(!alive())return;s.flushing=false;clearTimeout(s.settle);const text=message.result?.text?.trim();if(!text)return;
+     if(!alive())return;s.flushing=false;clearTimeout(s.settle);const text=localTranscript(message.result?.text||'');if(!text)return;
      if(!continuous)this.cancel();else watch();onTranscript(text);
     });
     rec.on('partialresult',message=>{

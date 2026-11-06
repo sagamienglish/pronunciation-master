@@ -1,9 +1,9 @@
 import test from 'node:test';
 import assert from 'node:assert/strict';
-import {LocalSpeechInput,waveformPath} from '../dist/local-speech.js';
+import {LocalSpeechInput,waveformPath,lessonGrammar,localTranscript} from '../dist/local-speech.js';
 function setup(){
  const recognizers=[],processors=[],signals=[],busy=[];let stopped=0,closed=0;
- class Recognizer{constructor(rate){this.rate=rate;this.events={};this.removed=false;recognizers.push(this);}on(name,fn){this.events[name]=fn;}acceptWaveform(buffer){this.buffer=buffer;}remove(){this.removed=true;}retrieveFinalResult(){this.flushed=true;}}
+ class Recognizer{constructor(rate,grammar){this.grammar=grammar;this.rate=rate;this.events={};this.removed=false;recognizers.push(this);}on(name,fn){this.events[name]=fn;}acceptWaveform(buffer){this.buffer=buffer;}remove(){this.removed=true;}retrieveFinalResult(){this.flushed=true;}}
  class Context{constructor(){this.sampleRate=48000;this.destination={};}resume(){return Promise.resolve();}close(){closed++;return Promise.resolve();}createMediaStreamSource(){return {connect(){},disconnect(){}};}createScriptProcessor(){const p={connect(){},disconnect(){}};processors.push(p);return p;}createGain(){return {gain:{value:1},connect(){},disconnect(){}};}}
  const stream={getTracks:()=>[{stop(){stopped++;}}]};
  const input=new LocalSpeechInput(s=>busy.push(!!s),signal=>signals.push(signal),{AudioContext:Context,mediaDevices:{getUserMedia:async()=>stream}});input.model={KaldiRecognizer:Recognizer};
@@ -27,3 +27,10 @@ test('local mode reports missing preparation without activating native speech or
 test('capture arriving after cancellation immediately stops and cannot create a recognizer',async()=>{
  let release,stops=0,created=0;const input=new LocalSpeechInput(()=>{},()=>{},{AudioContext:class{resume(){return Promise.resolve();}close(){return Promise.resolve();}},mediaDevices:{getUserMedia:()=>new Promise(resolve=>release=resolve)}});input.model={KaldiRecognizer:class{constructor(){created++;}}};input.start();input.cancel();release({getTracks:()=>[{stop(){stops++;}}]});await settle();assert.equal(stops,1);assert.equal(created,0);
 });
+
+test('lesson vocabulary includes all competing entries, compound spelling and unknown speech',async()=>{
+ const words=[{say:'Dutch'},{say:'victim'},{say:'microplastic'},{say:'non-profit organization'}];
+ const grammar=JSON.parse(lessonGrammar(words));assert.deepEqual(grammar,['dutch','victim','microplastic','micro plastic','non profit organization','skip','[unk]']);
+ const h=setup();h.input.start({vocabulary:words,onTranscript(){}});await settle();assert.deepEqual(JSON.parse(h.recognizers[0].grammar),grammar);h.input.cancel();
+});
+test('unknown markers around a recognized word do not become incorrect spelling penalties',()=>{assert.equal(localTranscript('[unk] Dutch [unk]'),'Dutch');assert.equal(localTranscript('[unk]'),'[unk]');assert.equal(localTranscript('symbol [unk] of'),'symbol of');});
