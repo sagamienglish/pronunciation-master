@@ -1,0 +1,11 @@
+hama-js 1.7.0 by Seongmin Park / hamanlp contributors.
+https://www.npmjs.com/package/hama-js/v/1.7.0
+https://github.com/hamanlp/hama
+Published package declares Apache-2.0. The upstream repository license is also retained.
+Source: registry.npmjs.org/hama-js/-/hama-js-1.7.0.tgz
+Package SHA-1: 43d7008f9fde8db8872322e42098046783322a4f
+
+Includes packaged asr_waveform.hama and hama.wasm, unmodified.
+Changes: inline JSON vocab imports to run as native browser ES modules;
+remove source map links; add same-origin Cache Storage to engine.browser.js.
+Only phoneme ASR is used. G2P/P2G model weights are not included or loaded.
