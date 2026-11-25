@@ -218,7 +218,7 @@ const vocabulary = {
  ["in the middle of ...", "…の半ばに", "表現", 2, "in the middle of"],
  ["instant", "即時の", "形容詞", 2],
  ["Britain", "イギリス", "名詞", 2],
- ["chippie", "フィッシュアンドチップスの店", "名詞", 2],
+ null, // Keep the ID for existing progress and audio.
  ["Europe", "ヨーロッパ", "名詞", 3],
  ["explore", "探検する", "動詞", 3],
  ["North America", "北アメリカ", "名詞", 3],

@@ -6,16 +6,16 @@ import {words as oldLesson7} from '../dist/vocabulary.js';
 import {emptyProgress,progressKey,readProgress,writeProgress,PROFILE_KEY} from '../dist/progress.js';
 
 function storage(seed={}){const map=new Map(Object.entries(seed));return {getItem:key=>map.get(key)??null,setItem:(key,value)=>map.set(key,value)};}
-const counts=[[13,12,8],[13,10,9],[10,11,11],[16,7,8],[7,12,9],[12,9,8],[9,11,12],[10,8,10],[9,7,13],[15,9,12]];
+const counts=[[13,12,8],[13,10,9],[10,11,11],[16,7,8],[7,12,9],[12,9,8],[9,11,12],[10,7,10],[9,7,13],[15,9,12]];
 test('ten lessons match the printed Part boundaries and keep unique local IDs',()=>{
  assert.deepEqual(lessons.map(l=>l.id),[1,2,3,4,5,6,7,8,9,10]);
  for(const l of lessons){
   assert.deepEqual([1,2,3].map(part=>l.words.filter(w=>w.part===part).length),counts[l.id-1],l.name);
-  assert.deepEqual(l.words.map(w=>w.id),Array.from({length:l.words.length},(_,id)=>l.id===5&&id>=19?id+1:l.id===8&&id>=22?id+2:id));
+  assert.deepEqual(l.words.map(w=>w.id),Array.from({length:l.words.length},(_,id)=>l.id===5&&id>=19?id+1:l.id===8&&id>=21?id+3:l.id===8&&id>=17?id+1:id));
   assert.equal(new Set(l.words.map(w=>w.en)).size,l.words.length);
   for(const w of l.words){assert.ok(w.ja&&w.pos&&w.say,w.en);assert.doesNotMatch(w.say,/[.…～/()]/,w.en);}
  }
- assert.equal(lessons.reduce((n,l)=>n+l.words.length,0),310);
+ assert.equal(lessons.reduce((n,l)=>n+l.words.length,0),309);
  assert.equal(getLesson(11),undefined);
 });
 test('Other words is excluded while all regular Part 1 entries in Lesson 6 remain',()=>{
@@ -84,4 +84,4 @@ test('removed Lesson 8 names leave following word IDs and scores unchanged',()=>
  const data=emptyProgress();data.history={22:[{score:100,heard:'Grand Banks'}],24:[{score:75,heard:'shore'}]};const s=storage();writeProgress(s,8,data);const restored=readProgress(s,8,lesson.words);assert.equal(restored.history[22],undefined);assert.equal(restored.bestScores[24],75);
 });
 
-test('past rush records remain valid after removing Lesson 8 entries',()=>{const s=storage();const data=emptyProgress();data.quickBest=30;data.quickChallenges=[{score:30,date:'2026-11-04T00:00:00Z'}];writeProgress(s,8,data);const restored=readProgress(s,8,getLesson(8).words);assert.equal(restored.quickBest,30);assert.equal(restored.quickChallenges[0].score,30);assert.equal(getLesson(8).words.length,28);});
+test('past rush records remain valid after removing Lesson 8 entries',()=>{const s=storage();const data=emptyProgress();data.quickBest=30;data.quickChallenges=[{score:30,date:'2026-11-04T00:00:00Z'}];writeProgress(s,8,data);const restored=readProgress(s,8,getLesson(8).words);assert.equal(restored.quickBest,30);assert.equal(restored.quickChallenges[0].score,30);assert.equal(getLesson(8).words.length,27);assert.ok(!getLesson(8).words.some(w=>w.en==='chippie'));});

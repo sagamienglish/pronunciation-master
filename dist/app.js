@@ -3,7 +3,7 @@ import {practiceOrder} from './practice-order.js?v=18';
 import {pronunciationFor} from './phonetics.js?v=19';
 import {certificateRank} from './awards.js?v=15';
 import {scoreWord,sample,totalScore} from './vocabulary.js';
-import {lessons,getLesson,themeColors} from './lessons.js?v=19';
+import {lessons,getLesson,themeColors} from './lessons.js?v=20';
 import {LESSON_KEY,readProgress,writeProgress,emptyProgress} from './progress.js?v=20';
 import {MicMeter} from './audio.js?v=19';
 import {SpeechInput} from './speech-input.js?v=23';
