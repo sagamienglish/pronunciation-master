@@ -1,4 +1,4 @@
-import {LocalSpeechInput,waveformPath} from './local-speech.js?v=26';
+import {LocalSpeechInput,waveformPath} from './local-speech.js?v=27';
 import {practiceOrder} from './practice-order.js?v=18';
 import {pronunciationFor} from './phonetics.js?v=19';
 import {certificateRank} from './awards.js?v=15';
@@ -70,7 +70,10 @@ let currentSignal;
 const onBusy=session=>{active=session;currentSignal=session?{phase:session.listening?'audio':'connecting'}:undefined;updateMicUI(!!session);};
 const nativeSpeechInput=ipadMode?new IPadSpeechInput(Recognition,onBusy,diagnostic):new SpeechInput(Recognition,onBusy,undefined,phase=>practiceSignal({phase}));
 const localSpeechInput=new LocalSpeechInput(onBusy,practiceSignal);
-window.prepareWordlinkSpeech=async()=>{await localSpeechInput.prepare();return localSpeechInput.model;};
+window.prepareWordlinkSpeech=async()=>{
+ await localSpeechInput.prepare();
+ return {model:localSpeechInput.model,copySamples:samples=>Float32Array.from(samples)};
+};
 let speechInput=localSpeechInput,recognitionMode='local',recognitionLoading=false;
 $('#show-speech-status').onclick=()=>{const details=$('#speech-diagnostics');details.open=true;details.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});};
 $('#release-mic').onclick=()=>{clearTimeout(quickRestart);speechInput.shutdown?.();micReady=false;if(['running','countdown'].includes(challenge?.phase))toast('接続を停止しました。回答ボタンで再接続できます。');};
@@ -152,7 +155,7 @@ function clearRound(){clearTimeout(quickRestart);$('#quick-victory')?.remove();c
 function showWordlink(view){
  if(view.firstElementChild)return;
  const frame=document.createElement('iframe');
- frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.src='wordlink/?embedded=1';
+ frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.src='wordlink/?embedded=1&v=2';
  let observer;
  frame.onload=()=>{
   observer?.disconnect();

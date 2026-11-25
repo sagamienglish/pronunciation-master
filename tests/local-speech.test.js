@@ -1,3 +1,4 @@
+import {runInNewContext} from 'node:vm';
 import test from 'node:test';
 import assert from 'node:assert/strict';
 import {LocalSpeechInput,waveformPath,lessonGrammar,localTranscript} from '../dist/local-speech.js';
@@ -34,3 +35,25 @@ test('lesson vocabulary includes all competing entries, compound spelling and un
  const h=setup();h.input.start({vocabulary:words,onTranscript(){}});await settle();assert.deepEqual(JSON.parse(h.recognizers[0].grammar),grammar);h.input.cancel();
 });
 test('unknown markers around a recognized word do not become incorrect spelling penalties',()=>{assert.equal(localTranscript('[unk] Dutch [unk]'),'Dutch');assert.equal(localTranscript('[unk]'),'[unk]');assert.equal(localTranscript('symbol [unk] of'),'symbol of');});
+
+test('shared recognizers receive samples from their own window while the match keeps its microphone',async()=>{
+ const h=setup(),heard=[],errors=[];
+ const {AudioContext,mediaDevices}=h.input.env;
+ const capture={ctx:new AudioContext(),stream:await mediaDevices.getUserMedia()};
+ capture.ctx.state='running';
+ h.input.env.copySamples=samples=>Float32Array.from(samples);
+ h.input.start({capture,onTranscript:value=>heard.push(value),onError:code=>errors.push(code)});
+ const rec=h.recognizers[0];
+ const foreignSamples=runInNewContext('new Float32Array([0.25, -0.25])');
+ assert.equal(foreignSamples instanceof Float32Array,false);
+ rec.acceptWaveformFloat=(samples,rate)=>{
+  assert.ok(samples.map(value=>value*32768) instanceof Float32Array);
+  assert.deepEqual([...samples],[.25,-.25]);
+  assert.equal(rate,48000);
+ };
+ h.processors[0].onaudioprocess({inputBuffer:{sampleRate:48000,getChannelData:()=>foreignSamples}});
+ rec.events.result({result:{text:'apple'}});
+ assert.deepEqual(errors,[]);
+ assert.deepEqual(heard,['apple']);
+ assert.deepEqual(h.counts(),{stopped:0,closed:0});
+});

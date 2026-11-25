@@ -57,7 +57,11 @@ export class LocalSpeechInput {
      for(let i=0;i<samples.length;i++)energy+=samples[i]*samples[i];
      for(let i=0;i<32;i++)trace.push(samples[Math.floor(i*(samples.length-1)/31)]);
      this.onSignal({kind:'wave',level:Math.sqrt(energy/samples.length),samples:trace});
-     try{rec.acceptWaveform(event.inputBuffer);}catch{fail('local-recognition-failed');}
+     try{
+      // A shared Vosk model checks the typed array in the window that owns it.
+      if(this.env.copySamples)rec.acceptWaveformFloat(this.env.copySamples(samples),event.inputBuffer.sampleRate);
+      else rec.acceptWaveform(event.inputBuffer);
+     }catch{fail('local-recognition-failed');}
     };
     s.source.connect(s.processor);s.processor.connect(s.gain);s.gain.connect(s.ctx.destination);
    }catch(error){fail(error.name==='NotAllowedError'?'not-allowed':error.name==='NotFoundError'?'audio-capture':'local-mic-unavailable');}

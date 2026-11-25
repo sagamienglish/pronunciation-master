@@ -1,4 +1,4 @@
-import {LocalSpeechInput} from '../local-speech.js?v=26';
+import {LocalSpeechInput} from '../local-speech.js?v=27';
 import {words, sample, scoreWord} from './vocabulary.js';
 import {SIZE, TURN_MS, winningPath} from './game.js?v=2';
 
@@ -13,11 +13,12 @@ if (embedded) document.body.classList.add('embedded');
 let tiles, owners, buttons, selection, path;
 let phase = 'ready', turn = 0, firstTeam = 'blue', matchStart = 0, clock, attempt, mic, matchVersion = 0;
 let countdownClock;
+const recognitionEnvironment = {};
 const recognition = new LocalSpeechInput(undefined, ({samples}) => {
   if (!attempt) return;
   $('wave-state').textContent = '発話を受付中';
   drawWave(samples);
-});
+}, recognitionEnvironment);
 
 function placeWords(keepWords = false) {
   if (!keepWords) {
@@ -180,7 +181,9 @@ async function start({differentBoard = false} = {}) {
   try {
     mic = await openMic(version);
     if (embedded && typeof window.parent.prepareWordlinkSpeech === 'function') {
-      recognition.model = await window.parent.prepareWordlinkSpeech();
+      const {model, copySamples} = await window.parent.prepareWordlinkSpeech();
+      recognition.model = model;
+      recognitionEnvironment.copySamples = copySamples;
     } else {
       await recognition.prepare();
     }
@@ -260,9 +263,12 @@ function speakSelected() {
     vocabulary: tiles,
     capture: mic,
     onTranscript: transcript => complete(current, transcript),
-    onError: code => complete(current, '', code === 'not-allowed'
-      ? 'マイクを許可してください。'
-      : '聞き取れませんでした。もう一度お試しください。')
+    onError: code => complete(current, '', ({
+      'not-allowed':'マイクを許可してください。',
+      'audio-capture':'マイクが見つかりません。接続を確認してください。',
+      'local-mic-unavailable':'マイクの入力を開始できませんでした。',
+      'local-recognition-failed':'音声認識でエラーが起きました。もう一度マスを選んでください。'
+    })[code] || '聞き取れませんでした。もう一度お試しください。')
   });
 }
 
