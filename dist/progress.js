@@ -5,7 +5,7 @@ export const LESSON_KEY='pronunciation-lab-active-lesson';
 export const progressKey=lesson=>`pronunciation-lab-lesson${lesson}-v1`;
 function read(storage,key){try{return JSON.parse(storage.getItem(key));}catch{return null;}}
 export function emptyProgress(profile={}){
- return {history:{},challenges:[],quickChallenges:[],attempts:0,bestScores:{},challengeBest:null,quickBest:0,profile:migrateProfile(profile&&typeof profile==='object'?profile:{})};
+ return {history:{},challenges:[],quickChallenges:[],attempts:0,bestScores:{},challengeBest:null,challengeBestElapsedMs:null,quickBest:0,profile:migrateProfile(profile&&typeof profile==='object'?profile:{})};
 }
 export function readProgress(storage,lesson,words){
  const saved=read(storage,progressKey(lesson));
@@ -23,6 +23,11 @@ export function readProgress(storage,lesson,words){
  data.challenges=saved.challenges.filter(x=>x&&Number.isFinite(x.score)&&x.score>=0&&x.score<=100).slice(-50).map(x=>{const record={score:x.score,date:x.date};if(x.score===100&&Number.isFinite(x.elapsedMs)&&x.elapsedMs>=0&&x.elapsedMs<=60000)record.elapsedMs=x.elapsedMs;return record;});
  const n=saved.challengeBest;data.challengeBest=Number.isFinite(n)&&n>=0&&n<=100?n:null;
  for(const c of data.challenges)data.challengeBest=Math.max(data.challengeBest??0,c.score);
+ const bestTime=saved.challengeBestElapsedMs;
+ if(data.challengeBest!==null&&data.challengeBest===n&&Number.isFinite(bestTime)&&bestTime>=0&&bestTime<=60000)data.challengeBestElapsedMs=bestTime;
+ for(const c of data.challenges){
+  if(c.score===data.challengeBest&&c.elapsedMs!==undefined)data.challengeBestElapsedMs=Math.min(c.elapsedMs,data.challengeBestElapsedMs??Infinity);
+ }
  data.quickChallenges=Array.isArray(saved.quickChallenges)?saved.quickChallenges.filter(x=>x&&Number.isInteger(x.score)&&x.score>=0&&x.score<=scoreLimit&&typeof x.date==='string').slice(-50):[];
  data.quickBest=Number.isInteger(saved.quickBest)&&saved.quickBest>=0&&saved.quickBest<=scoreLimit?saved.quickBest:0;
  data.quickBest=Math.max(data.quickBest,...data.quickChallenges.map(x=>x.score));

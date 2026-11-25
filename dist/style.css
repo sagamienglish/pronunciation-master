@@ -137,3 +137,55 @@ body{transition:background-color .2s,color .2s}
 .word-actions .mic .practice-face{width:25px;height:24px;stroke-width:1.6}.practice-face-wrap{display:inline-flex;align-items:center;justify-content:center;min-width:26px}
 .recognition-notice{padding:8px 12px;margin-top:8px;border:1px solid var(--line);border-radius:8px;background:var(--soft);font-size:11px}.practice-input{display:flex;align-items:center;justify-content:center;flex:1;min-width:25px;max-width:64px;margin-left:auto;color:var(--muted)}.practice-input svg{width:100%;height:24px;fill:none;stroke:currentColor;stroke-width:1.5}.practice-input[data-kind="wave"],.practice-input[data-phase="voice"],.practice-input[data-phase="processing"]{color:var(--green)}.word-actions{gap:7px}@media(max-width:760px){.practice-input{max-width:55px}.recognition-notice{font-size:10px}}@media(max-width:480px){.practice-input{max-width:70px}}
 .certificate-focus .recognition-notice{display:none}
+
+.sprint-best-time {
+ display:block;
+ color:var(--green);
+ font-size:14px;
+ font-variant-numeric:tabular-nums;
+ font-weight:700;
+}
+.challenge-input {
+ display:grid;
+ justify-items:center;
+ gap:2px;
+ width:min(100%,360px);
+ margin:10px auto;
+ padding:6px 14px;
+ border:1px solid var(--line);
+ border-radius:12px;
+ background:var(--soft);
+ color:var(--muted);
+}
+.challenge-input:not([data-phase="idle"]) {
+ border-color:var(--green);
+ background:var(--green);
+ color:white;
+}
+.challenge-input-label {font-size:12px;font-weight:700;}
+.challenge-input svg {
+ display:block;
+ width:100%;
+ height:36px;
+ fill:none;
+ stroke:currentColor;
+ stroke-linecap:round;
+ stroke-linejoin:round;
+}
+.challenge-input path {stroke-width:2;vector-effect:non-scaling-stroke;}
+.quick-prompt .challenge-input {margin:0 auto 10px;}
+.quick-prompt .quick-feedback {
+ display:grid;
+ justify-items:center;
+ align-content:center;
+ gap:3px;
+ width:min(100%,440px);
+ min-height:72px;
+ padding:8px 12px;
+ border-radius:10px;
+ background:var(--soft);
+ color:var(--green);
+ font-weight:600;
+}
+.quick-feedback strong {font-size:clamp(22px,5vw,36px);line-height:1.15;max-width:100%;}
+.quick-feedback small {color:var(--muted);font-size:12px;font-weight:400;}
