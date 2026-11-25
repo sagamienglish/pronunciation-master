@@ -1,5 +1,7 @@
 import {LocalSpeechInput} from '../local-speech.js?v=27';
-import {words, sample, scoreWord} from './vocabulary.js';
+import {sample, scoreWord} from '../vocabulary.js';
+import {getLesson} from '../lessons.js?v=20';
+import {LESSON_KEY} from '../progress.js?v=20';
 import {SIZE, TURN_MS, winningPath} from './game.js?v=2';
 
 const $ = id => document.getElementById(id);
@@ -8,7 +10,13 @@ const marks = {blue:'●', orange:'◆'};
 const Context = window.AudioContext || window.webkitAudioContext;
 const wave = $('wave').getContext('2d');
 const width = $('wave').width, height = $('wave').height;
-const embedded = window.parent !== window && new URLSearchParams(window.location.search).has('embedded');
+const params = new URLSearchParams(window.location.search);
+let savedLesson;
+try { savedLesson = window.localStorage.getItem(LESSON_KEY); } catch {}
+const lesson = getLesson(params.get('lesson') ?? savedLesson) || getLesson(7);
+const words = lesson.words;
+$('duel-lesson').textContent = lesson.name;
+const embedded = window.parent !== window && params.has('embedded');
 if (embedded) document.body.classList.add('embedded');
 let tiles, owners, buttons, selection, path;
 let phase = 'ready', turn = 0, firstTeam = 'blue', matchStart = 0, clock, attempt, mic, matchVersion = 0;
@@ -22,7 +30,7 @@ const recognition = new LocalSpeechInput(undefined, ({samples}) => {
 
 function placeWords(keepWords = false) {
   if (!keepWords) {
-    const next = sample(words.filter(word => word.en.length <= 16 && word.en === word.say), SIZE * SIZE);
+    const next = sample(words, SIZE * SIZE);
     if (tiles && next.every((word, index) => word.id === tiles[index].id)) next.push(next.shift());
     tiles = next;
   }
@@ -40,9 +48,9 @@ function placeWords(keepWords = false) {
     owner.className = 'owner';
     owner.setAttribute('aria-hidden', 'true');
     const label = document.createElement('span');
-    label.className = 'word';
+    label.className = tile.say.length > 15 ? 'word long' : 'word';
     label.lang = 'en';
-    label.textContent = tile.en;
+    label.textContent = tile.say;
     cell.append(owner, label);
     cell.onclick = () => {
       if (!syncClock() || attempt) return;
@@ -86,9 +94,9 @@ function render() {
     button.setAttribute('aria-pressed', selection === index);
     button.setAttribute('aria-disabled', !live || Boolean(attempt));
     button.firstChild.textContent = marks[owner] || '';
-    button.setAttribute('aria-label', tiles[index].en + '、' + (teamLabel[owner] || '空きマス'));
+    button.setAttribute('aria-label', tiles[index].say + '、' + (teamLabel[owner] || '空きマス'));
   });
-  $('selected-word').textContent = tiles[selection]?.en ?? '—';
+  $('selected-word').textContent = tiles[selection]?.say ?? '—';
   $('meaning').textContent = tiles[selection]?.ja ?? '好きなマスを選ぼう';
   $('action').textContent = phase === 'starting' ? 'マイクを準備中…' : phase === 'countdown' ? 'まもなく開始…' : phase === 'ready' ? '対戦スタート' : phase === 'done' ? '同じ盤面で再戦' : attempt ? '発話を受付中…' : 'もう一度発音する';
   $('action').disabled = ['starting', 'countdown'].includes(phase) || (live && (selection === null || Boolean(attempt)));
@@ -257,7 +265,7 @@ function speakSelected() {
   const current = {index:selection, team:currentTeam()};
   attempt = current;
   render();
-  $('feedback').textContent = '「' + tiles[current.index].en + '」';
+  $('feedback').textContent = '「' + tiles[current.index].say + '」';
   $('wave-state').textContent = 'マイク接続中';
   recognition.start({
     vocabulary: tiles,

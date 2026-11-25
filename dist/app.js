@@ -153,9 +153,11 @@ function stopMeter(){clearTimeout(meterTimeout);meter?.stop();meter=null;}
 function saveProfile(){data.profile.name=$('#profile-name').value.trim().slice(0,60);Object.assign(data.profile,profileSelections($('#profile-class').value,$('#profile-number').value));persist();updateProfileLabel();}
 function clearRound(){clearTimeout(quickRestart);$('#quick-victory')?.remove();clearTimeout(celebrationTimer);$('#perfect-celebration')?.remove();document.body.classList.remove('challenge-running');cancelRecording();stopMeter();stopSpeech();clearInterval(tick);if(challenge?.phase==='countdown')$('#countdown-overlay')?.remove();challenge=null;}
 function showWordlink(view){
- if(view.firstElementChild)return;
+ const current=view.firstElementChild;
+ if(current?.dataset.lesson===String(lesson.id))return;
+ if(current){current.dispose?.();current.remove();}
  const frame=document.createElement('iframe');
- frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.src='wordlink/?embedded=1&v=2';
+ frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.dataset.lesson=String(lesson.id);frame.src='wordlink/?embedded=1&v=3&lesson='+lesson.id;
  let observer;
  frame.onload=()=>{
   observer?.disconnect();
