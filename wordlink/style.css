@@ -50,3 +50,5 @@ dialog{color:var(--ink);background:var(--surface);width:min(530px,calc(100% - 32
 #countdown{text-align:center;background:var(--ink);color:white}
 #countdown-number{display:block;color:var(--lime);font-size:clamp(5rem,20vw,9rem);line-height:1}
 #countdown::backdrop{background:#142f2bdd}
+
+.hex .word.long{font-size:.82em}
