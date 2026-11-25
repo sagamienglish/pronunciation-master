@@ -93,7 +93,7 @@ function errorMessage(code){return ({'not-allowed':'マイク・音声認識が�
 function record(w,{button,onResult,onError=toast}={}){
  if(speechInput.busy){toast('マイクの終了処理中です。少し待ってから押してください。');return;}
  stopMeter();stopSpeech();
- speechInput.start({button,vocabulary:words,onTranscript:heard=>onResult(transcriptResult(w,heard)),onError:code=>onError(errorMessage(code),code)});
+ speechInput.start({button,onTranscript:heard=>onResult(transcriptResult(w,heard)),onError:code=>onError(errorMessage(code),code)});
 }
 function recognitionAvailable(){return recognitionMode==='local'?localSpeechInput.ready:!!Recognition;}
 function challengeInput(){
@@ -157,7 +157,7 @@ function showWordlink(view){
  if(current?.dataset.lesson===String(lesson.id))return;
  if(current){current.dispose?.();current.remove();}
  const frame=document.createElement('iframe');
- frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.dataset.lesson=String(lesson.id);frame.src='wordlink/?embedded=1&v=4&lesson='+lesson.id;
+ frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.dataset.lesson=String(lesson.id);frame.src='wordlink/?embedded=1&v=5&lesson='+lesson.id;
  let observer;
  frame.onload=()=>{
   observer?.disconnect();
@@ -220,7 +220,7 @@ function listenQuick(){
  if(Date.now()>=c.deadline){finishQuick();return;}
  if(speechInput.busy){$('#round-status').textContent='マイクの終了を待っています。少し待ってから再開してください。';return;}
  clearTimeout(quickRestart);stopMeter();stopSpeech();
- speechInput.start({continuous:true,vocabulary:words,button:$('#quick-mic'),onTranscript:heard=>{
+ speechInput.start({continuous:true,button:$('#quick-mic'),onTranscript:heard=>{
   if(challenge!==c||c.phase!=='running')return;if(Date.now()>=c.deadline){finishQuick();return;}
   if(c.index>=c.items.length||Date.now()<(c.blockUntil||0))return;
   if(scoreWord('skip',heard)===100){skipQuick(true);return;}
