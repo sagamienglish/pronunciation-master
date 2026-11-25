@@ -1,4 +1,4 @@
-import {LocalSpeechInput,waveformPath} from './local-speech.js?v=27';
+import {LocalSpeechInput,waveformPath} from './local-speech.js?v=28';
 import {practiceOrder} from './practice-order.js?v=18';
 import {pronunciationFor} from './phonetics.js?v=19';
 import {certificateRank} from './awards.js?v=15';
@@ -157,7 +157,7 @@ function showWordlink(view){
  if(current?.dataset.lesson===String(lesson.id))return;
  if(current){current.dispose?.();current.remove();}
  const frame=document.createElement('iframe');
- frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.dataset.lesson=String(lesson.id);frame.src='wordlink/?embedded=1&v=7&lesson='+lesson.id;
+ frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.dataset.lesson=String(lesson.id);frame.src='wordlink/?embedded=1&v=8&lesson='+lesson.id;
  let observer;
  frame.onload=()=>{
   observer?.disconnect();
