@@ -4,7 +4,7 @@ import assert from 'node:assert/strict';
 import {LocalSpeechInput,waveformPath,lessonGrammar,localTranscript} from '../dist/local-speech.js';
 function setup(){
  const recognizers=[],processors=[],signals=[],busy=[];let stopped=0,closed=0;
- class Recognizer{constructor(rate,grammar){this.grammar=grammar;this.rate=rate;this.events={};this.removed=false;recognizers.push(this);}on(name,fn){this.events[name]=fn;}acceptWaveform(buffer){this.buffer=buffer;}remove(){this.removed=true;}retrieveFinalResult(){this.flushed=true;}}
+ class Recognizer{constructor(rate,grammar){this.grammar=grammar;this.rate=rate;this.events={};this.removed=false;recognizers.push(this);}on(name,fn){this.events[name]=fn;}acceptWaveformFloat(samples){(this.frames??=[]).push([...samples]);}remove(){this.removed=true;}retrieveFinalResult(){this.flushed=true;}}
  class Context{constructor(){this.sampleRate=48000;this.destination={};}resume(){return Promise.resolve();}close(){closed++;return Promise.resolve();}createMediaStreamSource(){return {connect(){},disconnect(){}};}createScriptProcessor(){const p={connect(){},disconnect(){}};processors.push(p);return p;}createGain(){return {gain:{value:1},connect(){},disconnect(){}};}}
  const stream={getTracks:()=>[{stop(){stopped++;}}]};
  const input=new LocalSpeechInput(s=>busy.push(!!s),signal=>signals.push(signal),{AudioContext:Context,mediaDevices:{getUserMedia:async()=>stream}});input.model={KaldiRecognizer:Recognizer};
@@ -51,9 +51,28 @@ test('shared recognizers receive samples from their own window while the match k
   assert.deepEqual([...samples],[.25,-.25]);
   assert.equal(rate,48000);
  };
- h.processors[0].onaudioprocess({inputBuffer:{sampleRate:48000,getChannelData:()=>foreignSamples}});
+ const frame={inputBuffer:{sampleRate:48000,getChannelData:()=>foreignSamples}};
+ h.processors[0].onaudioprocess(frame);
+ h.processors[0].onaudioprocess(frame);
  rec.events.result({result:{text:'apple'}});
  assert.deepEqual(errors,[]);
  assert.deepEqual(heard,['apple']);
  assert.deepEqual(h.counts(),{stopped:0,closed:0});
+});
+
+test('leading quiet audio and isolated spikes do not reach recognition before sustained speech',async()=>{
+ const h=setup();
+ h.input.start();await settle();
+ try{
+  const send=level=>h.processors[0].onaudioprocess({inputBuffer:{sampleRate:48000,getChannelData:()=>new Float32Array(32).fill(level)}});
+  const rec=h.recognizers[0];
+  send(.002);send(.2);send(.004);send(.03);
+  assert.equal(rec.frames,undefined);
+  assert.equal(h.signals.at(-1).speechStarted,false);
+  send(.04);
+  assert.deepEqual(rec.frames.map(frame=>Math.round(frame[0]*1000)),[4,30,40]);
+  assert.equal(h.signals.at(-1).speechStarted,true);
+  send(0);
+  assert.equal(rec.frames.at(-1)[0],0);
+ }finally{h.input.cancel();}
 });

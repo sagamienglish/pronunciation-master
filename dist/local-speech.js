@@ -52,15 +52,33 @@ export class LocalSpeechInput {
      clearTimeout(s.settle);s.settle=setTimeout(()=>{if(alive()){s.flushing=true;rec.retrieveFinalResult();}},1000);
     });
     s.source=s.ctx.createMediaStreamSource(s.stream);s.processor=s.ctx.createScriptProcessor(4096,1,1);s.gain=s.ctx.createGain();s.gain.gain.value=0;
+    let speechStarted=false, quietFrame, onsetFrame;
+    const feed=(samples,rate)=>{
+     const data=this.env.copySamples?this.env.copySamples(samples):samples;
+     rec.acceptWaveformFloat(data,rate);
+    };
     s.processor.onaudioprocess=event=>{
      if(!alive())return;const samples=event.inputBuffer.getChannelData(0);let energy=0;const trace=[];
      for(let i=0;i<samples.length;i++)energy+=samples[i]*samples[i];
      for(let i=0;i<32;i++)trace.push(samples[Math.floor(i*(samples.length-1)/31)]);
-     this.onSignal({kind:'wave',level:Math.sqrt(energy/samples.length),samples:trace});
+     const level=Math.sqrt(energy/samples.length),rate=event.inputBuffer.sampleRate;
      try{
-      // A shared Vosk model checks the typed array in the window that owns it.
-      if(this.env.copySamples)rec.acceptWaveformFloat(this.env.copySamples(samples),event.inputBuffer.sampleRate);
-      else rec.acceptWaveform(event.inputBuffer);
+      if(!speechStarted){
+       // Wait for two audible frames, keeping one quiet frame to preserve soft consonants.
+       if(level<.008){
+        quietFrame=Float32Array.from(samples);
+        onsetFrame=undefined;
+       }else if(!onsetFrame){
+        onsetFrame=Float32Array.from(samples);
+       }else{
+        speechStarted=true;
+        if(quietFrame)feed(quietFrame,rate);
+        feed(onsetFrame,rate);
+        quietFrame=onsetFrame=undefined;
+       }
+      }
+      if(speechStarted)feed(samples,rate);
+      this.onSignal({kind:'wave',level,samples:trace,speechStarted});
      }catch{fail('local-recognition-failed');}
     };
     s.source.connect(s.processor);s.processor.connect(s.gain);s.gain.connect(s.ctx.destination);

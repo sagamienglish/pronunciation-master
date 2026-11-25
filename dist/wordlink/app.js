@@ -1,4 +1,4 @@
-import {LocalSpeechInput} from '../local-speech.js?v=27';
+import {LocalSpeechInput} from '../local-speech.js?v=28';
 import {sample, scoreWord} from '../vocabulary.js';
 import {getLesson} from '../lessons.js?v=20';
 import {LESSON_KEY} from '../progress.js?v=20';
@@ -22,9 +22,9 @@ let tiles, owners, buttons, selection, path;
 let phase = 'ready', turn = 0, firstTeam = 'blue', matchStart = 0, clock, attempt, mic, matchVersion = 0;
 let countdownClock, scoreClock, scoreReveal;
 const recognitionEnvironment = {};
-const recognition = new LocalSpeechInput(undefined, ({samples}) => {
+const recognition = new LocalSpeechInput(undefined, ({samples, speechStarted}) => {
   if (!attempt) return;
-  $('wave-state').textContent = '発話を受付中';
+  $('wave-state').textContent = speechStarted ? '発話を受付中' : '発話を待っています';
   drawWave(samples);
 }, recognitionEnvironment);
 
