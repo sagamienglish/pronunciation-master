@@ -1,4 +1,4 @@
-import {LocalSpeechInput,waveformPath} from './local-speech.js?v=25';
+import {LocalSpeechInput,waveformPath} from './local-speech.js?v=26';
 import {practiceOrder} from './practice-order.js?v=18';
 import {pronunciationFor} from './phonetics.js?v=19';
 import {certificateRank} from './awards.js?v=15';
@@ -70,6 +70,7 @@ let currentSignal;
 const onBusy=session=>{active=session;currentSignal=session?{phase:session.listening?'audio':'connecting'}:undefined;updateMicUI(!!session);};
 const nativeSpeechInput=ipadMode?new IPadSpeechInput(Recognition,onBusy,diagnostic):new SpeechInput(Recognition,onBusy,undefined,phase=>practiceSignal({phase}));
 const localSpeechInput=new LocalSpeechInput(onBusy,practiceSignal);
+window.prepareWordlinkSpeech=async()=>{await localSpeechInput.prepare();return localSpeechInput.model;};
 let speechInput=localSpeechInput,recognitionMode='local',recognitionLoading=false;
 $('#show-speech-status').onclick=()=>{const details=$('#speech-diagnostics');details.open=true;details.scrollIntoView({behavior:window.matchMedia('(prefers-reduced-motion: reduce)').matches?'auto':'smooth',block:'center'});};
 $('#release-mic').onclick=()=>{clearTimeout(quickRestart);speechInput.shutdown?.();micReady=false;if(['running','countdown'].includes(challenge?.phase))toast('接続を停止しました。回答ボタンで再接続できます。');};
@@ -148,7 +149,21 @@ function addHistory(w,r){data.attempts++;data.bestScores[w.id]=Math.max(data.bes
 function stopMeter(){clearTimeout(meterTimeout);meter?.stop();meter=null;}
 function saveProfile(){data.profile.name=$('#profile-name').value.trim().slice(0,60);Object.assign(data.profile,profileSelections($('#profile-class').value,$('#profile-number').value));persist();updateProfileLabel();}
 function clearRound(){clearTimeout(quickRestart);$('#quick-victory')?.remove();clearTimeout(celebrationTimer);$('#perfect-celebration')?.remove();document.body.classList.remove('challenge-running');cancelRecording();stopMeter();stopSpeech();clearInterval(tick);if(challenge?.phase==='countdown')$('#countdown-overlay')?.remove();challenge=null;}
-function setMode(next){if(['running','countdown'].includes(challenge?.phase)&&!confirm('チャレンジを終了しますか？ この回の結果は保存されません。'))return;clearRound();document.body.classList.remove('certificate-focus');mode=next;if(next==='review'){part=0;$$('[data-part]').forEach(b=>b.classList.toggle('selected',b.dataset.part==='0'));}$$('[data-mode]').forEach(b=>{b.classList.toggle('selected',b.dataset.mode===next);b.setAttribute('aria-pressed',b.dataset.mode===next);});$('#practice-view').hidden=['challenge','quick'].includes(next);$('#challenge-view').hidden=!['challenge','quick'].includes(next);if(['challenge','quick'].includes(next)){micReady=false;challengeSetup();}else list();}
+function showWordlink(view){
+ if(view.firstElementChild)return;
+ const frame=document.createElement('iframe');
+ frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.src='wordlink/?embedded=1';
+ let observer;
+ frame.onload=()=>{
+  observer?.disconnect();
+  const body=frame.contentDocument?.body;if(!body)return;
+  const resize=()=>{frame.style.height=Math.ceil(body.getBoundingClientRect().height)+2+'px';};
+  resize();observer=new ResizeObserver(resize);observer.observe(body);
+ };
+ frame.dispose=()=>{observer?.disconnect();frame.contentWindow?.stopWordlinkMatch?.();};
+ view.append(frame);
+}
+function setMode(next){if(['running','countdown'].includes(challenge?.phase)&&!confirm('チャレンジを終了しますか？ この回の結果は保存されません。'))return;clearRound();document.body.classList.remove('certificate-focus');mode=next;if(next==='review'){part=0;$$('[data-part]').forEach(b=>b.classList.toggle('selected',b.dataset.part==='0'));}$$('[data-mode]').forEach(b=>{b.classList.toggle('selected',b.dataset.mode===next);b.setAttribute('aria-pressed',b.dataset.mode===next);});const duel=$('#wordlink-view');duel.hidden=next!=='wordlink';if(next==='wordlink'){speechInput.shutdown?.();showWordlink(duel);}else if(duel.firstElementChild){duel.firstElementChild.dispose?.();duel.replaceChildren();}$('#practice-view').hidden=['challenge','quick','wordlink'].includes(next);$('#challenge-view').hidden=!['challenge','quick'].includes(next);if(next==='wordlink')return;if(['challenge','quick'].includes(next)){micReady=false;challengeSetup();}else list();}
 function challengeSetup(message=''){clearTimeout(celebrationTimer);$('#perfect-celebration')?.remove();stopMeter();clearInterval(tick);const quick=mode==='quick';$('#challenge-content').innerHTML=`<section class="challenge-panel"><div class="eyebrow">${quick?'60 SECONDS · JAPANESE TO ENGLISH':'60 SECONDS · 10 WORDS · 100 POINTS'}</div><h1>${quick?CHALLENGES.quick.name:CHALLENGES.sprint.name}</h1><p>${quick?'日本語を見て、英語で即答。正解すると自動で次の問題へ。':'10語を一度に表示。好きな順にマイクを押して発音しよう。'}</p><p class="setup-profile">提出名：${escape(data.profile.name||'未設定')} ${escape(data.profile.group)} <button class="text-button" id="setup-profile">名前を設定</button></p><div id="meter-panel" class="meter-panel" hidden><div class="meter-label"><span>マイクの入力音量</span><span id="meter-state">音を待っています…</span></div><div id="mic-meter" class="meter" role="meter" aria-label="マイクの入力音量" aria-valuemin="0" aria-valuemax="100" aria-valuenow="0"><i id="mic-level"></i></div><small class="meter-note">声に合わせてバーが伸びればOK。音声は保存されません。</small></div><div id="test-status" class="test-status" role="status">${escape(message||'最初にマイクを試して、声が入るか確認してください。')}</div><div class="start-buttons"><button class="secondary" id="test-mic">マイクを試す</button><button class="primary" id="begin-challenge" ${micReady&&recognitionAvailable()?'':'disabled'}>3秒カウントでスタート ↗</button><button class="secondary" id="setup-history">得点履歴 ↗</button></div><p class="rules-note">${quick?`一致した単語を1語とカウント。スキップ可・全${words.length}語。音が途切れたらマイクを再開できます。`:'何度でも再挑戦OK。各単語の最高点を合計。100点で自動終了。未回答は0点。'} 3 → 2 → 1で60秒スタート。</p></section>`;
  $('#setup-history').onclick=()=>openChallengeHistory(quick?'quick':'sprint');$('#setup-profile').onclick=openProfile;$('#test-mic').onclick=testMicrophone;$('#begin-challenge').onclick=startChallenge;
 }

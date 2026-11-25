@@ -194,3 +194,5 @@ body{transition:background-color .2s,color .2s}
 .wordlink-tab:hover{text-decoration:underline}
 @media(max-width:850px){.mode-tabs .wordlink-tab{font-size:11px}}
 @media(max-width:520px){.mode-tabs{flex-wrap:wrap;column-gap:8px;row-gap:0}.mode-tabs .wordlink-tab{flex-basis:100%;border-top:1px solid var(--line)}}
+
+#wordlink-view iframe{display:block;width:100%;min-height:500px;border:0}

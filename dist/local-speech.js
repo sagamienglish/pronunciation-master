@@ -22,9 +22,9 @@ export class LocalSpeechInput {
    catch(error){model.terminate();throw error;}
   })();try{await this.loading;}finally{this.loading=null;}
  }
- start({continuous=false,vocabulary=[],onTranscript,onError=()=>{},button}={}){
+ start({continuous=false,vocabulary=[],onTranscript,onError=()=>{},button,capture}={}){
   if(this.session)return false;if(!this.model){onError('local-not-ready');return false;}
-  const s={continuous,onTranscript,onError,button,ctx:null,stream:null,processor:null,source:null,gain:null,rec:null,watch:null,settle:null,flushing:false};this.session=s;this.onBusy(s);
+  const s={continuous,onTranscript,onError,button,capture,ctx:null,stream:null,processor:null,source:null,gain:null,rec:null,watch:null,settle:null,flushing:false};this.session=s;this.onBusy(s);
   const alive=()=>this.session===s;
   const fail=code=>{if(!alive())return;this.cancel();onError(code);};
   const watch=()=>{clearTimeout(s.watch);s.watch=setTimeout(()=>fail('recognition-timeout'),15000);};watch();
@@ -32,10 +32,15 @@ export class LocalSpeechInput {
    try{
     const Context=this.env.AudioContext||globalThis.AudioContext||globalThis.webkitAudioContext;
     const media=this.env.mediaDevices||globalThis.navigator?.mediaDevices;
-    if(!Context||!media?.getUserMedia){fail('local-mic-unavailable');return;}
-    s.ctx=new Context();const resumed=s.ctx.resume();
-    s.stream=await media.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1},video:false});await resumed;
-    if(!alive()){s.stream.getTracks().forEach(track=>track.stop());return;}
+    if(capture){
+     s.ctx=capture.ctx;s.stream=capture.stream;
+     if(s.ctx.state!=='running')await s.ctx.resume();
+    }else{
+     if(!Context||!media?.getUserMedia){fail('local-mic-unavailable');return;}
+     s.ctx=new Context();const resumed=s.ctx.resume();
+     s.stream=await media.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1},video:false});await resumed;
+    }
+    if(!alive()){if(!capture)s.stream.getTracks().forEach(track=>track.stop());return;}
     const rec=s.rec=new this.model.KaldiRecognizer(s.ctx.sampleRate,vocabulary.length?lessonGrammar(vocabulary):undefined);
     rec.on('error',()=>fail('local-recognition-failed'));
     rec.on('result',message=>{
@@ -62,7 +67,8 @@ export class LocalSpeechInput {
   const s=this.session;if(!s)return;this.session=null;clearTimeout(s.watch);clearTimeout(s.settle);
   if(s.processor)s.processor.onaudioprocess=null;
   for(const node of [s.source,s.processor,s.gain])try{node?.disconnect();}catch{}
-  s.stream?.getTracks().forEach(track=>track.stop());try{s.rec?.remove();}catch{}s.ctx?.close().catch(()=>{});
+  try{s.rec?.remove();}catch{}
+  if(!s.capture){s.stream?.getTracks().forEach(track=>track.stop());s.ctx?.close().catch(()=>{});}
   this.onBusy(null);
  }
  shutdown(){this.cancel();}

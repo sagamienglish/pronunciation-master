@@ -1,15 +1,23 @@
+import {LocalSpeechInput} from '../local-speech.js?v=26';
 import {words, sample, scoreWord} from './vocabulary.js';
 import {SIZE, TURN_MS, winningPath} from './game.js?v=2';
 
 const $ = id => document.getElementById(id);
 const teamLabel = {blue:'Player Blue', orange:'Player Orange'};
 const marks = {blue:'●', orange:'◆'};
-const Recognition = window.SpeechRecognition || window.webkitSpeechRecognition;
 const Context = window.AudioContext || window.webkitAudioContext;
 const wave = $('wave').getContext('2d');
 const width = $('wave').width, height = $('wave').height;
+const embedded = window.parent !== window && new URLSearchParams(window.location.search).has('embedded');
+if (embedded) document.body.classList.add('embedded');
 let tiles, owners, buttons, selection, path;
 let phase = 'ready', turn = 0, firstTeam = 'blue', matchStart = 0, clock, attempt, mic, matchVersion = 0;
+let countdownClock;
+const recognition = new LocalSpeechInput(undefined, ({samples}) => {
+  if (!attempt) return;
+  $('wave-state').textContent = '発話を受付中';
+  drawWave(samples);
+});
 
 function placeWords(keepWords = false) {
   if (!keepWords) {
@@ -81,12 +89,11 @@ function render() {
   });
   $('selected-word').textContent = tiles[selection]?.en ?? '—';
   $('meaning').textContent = tiles[selection]?.ja ?? '好きなマスを選ぼう';
-  $('action').textContent = phase === 'starting' ? 'マイクを準備中…' : phase === 'ready' ? '対戦スタート' : phase === 'done' ? '同じ盤面で再戦' : attempt ? '発話を受付中…' : $('demo').checked ? '100点を試す' : 'もう一度発音する';
-  $('action').disabled = phase === 'starting' || (live && (selection === null || Boolean(attempt)));
+  $('action').textContent = phase === 'starting' ? 'マイクを準備中…' : phase === 'countdown' ? 'まもなく開始…' : phase === 'ready' ? '対戦スタート' : phase === 'done' ? '同じ盤面で再戦' : attempt ? '発話を受付中…' : 'もう一度発音する';
+  $('action').disabled = ['starting', 'countdown'].includes(phase) || (live && (selection === null || Boolean(attempt)));
   $('action').classList.toggle('secondary', phase === 'done');
   $('action').classList.toggle('primary', phase !== 'done');
   $('new-board').hidden = phase !== 'done';
-  $('demo').disabled = live || phase === 'starting';
   $('reset').hidden = !live;
 }
 
@@ -105,19 +112,20 @@ function drawWave(values) {
 }
 
 async function openMic(version) {
-  if (!Recognition || !Context || !navigator.mediaDevices?.getUserMedia) {
-    throw new Error('音声認識に対応していません。「マイクなしで試す」で遊べます。');
+  if (!Context || !navigator.mediaDevices?.getUserMedia) {
+    throw new Error('マイクを利用できません。Safariで開き、マイクの設定を確認してください。');
   }
   const ctx = new Context();
   let stream;
   try {
-    await ctx.resume();
-    stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true},video:false});
+    const resumed = ctx.resume();
+    try {
+      stream = await navigator.mediaDevices.getUserMedia({audio:{echoCancellation:true,noiseSuppression:true,channelCount:1},video:false});
+    } finally {
+      await resumed;
+    }
     if (version !== matchVersion) throw new Error();
-    const analyser = ctx.createAnalyser();
-    analyser.fftSize = 1024;
-    ctx.createMediaStreamSource(stream).connect(analyser);
-    return {ctx, stream, analyser};
+    return {ctx, stream};
   } catch (error) {
     stream?.getTracks().forEach(track => track.stop());
     await ctx.close().catch(() => {});
@@ -132,15 +140,9 @@ function closeMic() {
 }
 
 function cancelAttempt() {
-  const current = attempt;
-  if (!current) return;
+  if (!attempt) return;
   attempt = null;
-  clearTimeout(current.timeout);
-  cancelAnimationFrame(current.frame);
-  if (current.rec) {
-    current.rec.onresult = current.rec.onerror = current.rec.onend = null;
-    try { current.rec.abort(); } catch {}
-  }
+  recognition.cancel();
   $('wave-state').textContent = 'マイク待機中';
   drawWave();
 }
@@ -168,7 +170,7 @@ function syncClock(now = performance.now()) {
 }
 
 async function start({differentBoard = false} = {}) {
-  if (phase === 'starting' || phase === 'playing') return;
+  if (['starting', 'countdown', 'playing'].includes(phase)) return;
   const version = ++matchVersion;
   const rematch = phase === 'done';
   const nextStarter = rematch ? opposingTeam(firstTeam) : 'blue';
@@ -176,12 +178,19 @@ async function start({differentBoard = false} = {}) {
   phase = 'starting';
   render();
   try {
-    if (!$('demo').checked) mic = await openMic(version);
+    mic = await openMic(version);
+    if (embedded && typeof window.parent.prepareWordlinkSpeech === 'function') {
+      recognition.model = await window.parent.prepareWordlinkSpeech();
+    } else {
+      await recognition.prepare();
+    }
+    if (version !== matchVersion) return;
   } catch (error) {
     if (version !== matchVersion) return;
+    closeMic();
     phase = rematch ? 'done' : 'ready';
     $('feedback').textContent = error.name === 'NotAllowedError'
-      ? 'マイクを許可してください。「マイクなしで試す」でも遊べます。'
+      ? 'マイクを許可してください。iPadではSafariの設定も確認してください。'
       : error.message || 'マイクに接続できませんでした。';
     render();
     return;
@@ -190,11 +199,32 @@ async function start({differentBoard = false} = {}) {
   turn = 0;
   placeWords(rematch && !differentBoard);
   showTime(TURN_MS);
-  phase = 'playing';
-  matchStart = performance.now();
-  $('feedback').textContent = teamLabel[firstTeam] + 'から。マスを押して発音してください。';
+  beginCountdown();
+}
+
+function beginCountdown() {
+  phase = 'countdown';
   render();
-  clock = setInterval(syncClock, 80);
+  $('rules').close();
+  $('countdown-number').textContent = '3';
+  $('countdown-player').textContent = teamLabel[firstTeam] + 'からスタート';
+  $('countdown').showModal();
+  const endsAt = performance.now() + 3000;
+  countdownClock = setInterval(() => {
+    const remaining = endsAt - performance.now();
+    if (remaining > 0) {
+      const digit = String(Math.ceil(remaining / 1000));
+      if ($('countdown-number').textContent !== digit) $('countdown-number').textContent = digit;
+      return;
+    }
+    clearInterval(countdownClock);
+    $('countdown').close();
+    phase = 'playing';
+    matchStart = performance.now();
+    $('feedback').textContent = teamLabel[firstTeam] + 'から。マスを押して発音してください。';
+    render();
+    clock = setInterval(syncClock, 80);
+  }, 80);
 }
 
 function complete(current, transcript, message) {
@@ -207,7 +237,7 @@ function complete(current, transcript, message) {
   }
   const tile = tiles[current.index];
   const score = scoreWord(tile.say, transcript);
-  $('feedback').textContent = ($('demo').checked ? 'デモ採点' : '認識 ' + transcript) + ' · ' + score + '点';
+  $('feedback').textContent = ('認識 ' + transcript) + ' · ' + score + '点';
   if (score === 100) {
     owners[current.index] = current.team;
     path = winningPath(owners, current.team);
@@ -225,33 +255,15 @@ function speakSelected() {
   attempt = current;
   render();
   $('feedback').textContent = '「' + tiles[current.index].en + '」';
-  if ($('demo').checked) {
-    $('wave-state').textContent = 'マイクなし · デモ採点';
-    current.timeout = setTimeout(() => complete(current, tiles[current.index].say), 280);
-    return;
-  }
-  const data = new Float32Array(mic.analyser.fftSize);
-  const updateWave = () => {
-    if (attempt !== current) return;
-    mic.analyser.getFloatTimeDomainData(data);
-    drawWave(data);
-    current.frame = requestAnimationFrame(updateWave);
-  };
-  try {
-    const rec = current.rec = new Recognition();
-    rec.lang = 'en-US';
-    rec.maxAlternatives = 1;
-    rec.onresult = event => complete(current, event.results[0][0].transcript);
-    rec.onerror = event => complete(current, '', event.error === 'not-allowed'
-      ? 'ブラウザの音声認識を許可してください。' : '音声を認識できませんでした。もう一度お試しください。');
-    rec.onend = () => complete(current, '', '聞き取れませんでした。もう一度お試しください。');
-    rec.start();
-    $('wave-state').textContent = '発話を受付中';
-    current.timeout = setTimeout(() => complete(current, '', '聞き取れませんでした。もう一度お試しください。'), 10000);
-    updateWave();
-  } catch {
-    complete(current, '', '音声認識を始められませんでした。もう一度お試しください。');
-  }
+  $('wave-state').textContent = 'マイク接続中';
+  recognition.start({
+    vocabulary: tiles,
+    capture: mic,
+    onTranscript: transcript => complete(current, transcript),
+    onError: code => complete(current, '', code === 'not-allowed'
+      ? 'マイクを許可してください。'
+      : '聞き取れませんでした。もう一度お試しください。')
+  });
 }
 
 function finish(winner) {
@@ -276,9 +288,11 @@ function finish(winner) {
 }
 
 $('action').onclick = () => phase === 'playing' ? speakSelected() : start();
-$('reset').onclick = () => {
+function resetMatch() {
   ++matchVersion;
   clearInterval(clock);
+  clearInterval(countdownClock);
+  $('countdown').close();
   cancelAttempt();
   closeMic();
   phase = 'ready';
@@ -287,7 +301,10 @@ $('reset').onclick = () => {
   showTime(TURN_MS);
   $('feedback').textContent = '新しい単語で対戦を始められます。';
   render();
-};
+}
+$('reset').onclick = resetMatch;
+$('cancel-countdown').onclick = resetMatch;
+$('countdown').addEventListener('cancel', resetMatch);
 function playAgain(differentBoard) {
   $('result').close();
   return start({differentBoard});
@@ -296,9 +313,11 @@ $('rematch').onclick = () => playAgain(false);
 $('rematch-new').onclick = () => playAgain(true);
 $('new-board').onclick = () => playAgain(true);
 $('help').onclick = () => $('rules').showModal();
-window.addEventListener('pagehide', () => {
-  if (phase === 'playing') $('reset').click();
-});
+function stopActiveMatch() {
+  if (['starting', 'countdown', 'playing'].includes(phase)) resetMatch();
+}
+window.stopWordlinkMatch = stopActiveMatch;
+window.addEventListener('pagehide', stopActiveMatch);
 placeWords();
 drawWave();
 render();
