@@ -4,7 +4,7 @@ import {pronunciationFor} from './phonetics.js?v=19';
 import {certificateRank} from './awards.js?v=15';
 import {scoreWord,sample,totalScore} from './vocabulary.js';
 import {lessons,getLesson,themeColors} from './lessons.js?v=19';
-import {LESSON_KEY,readProgress,writeProgress,emptyProgress} from './progress.js?v=19';
+import {LESSON_KEY,readProgress,writeProgress,emptyProgress} from './progress.js?v=20';
 import {MicMeter} from './audio.js?v=19';
 import {SpeechInput} from './speech-input.js?v=23';
 import {IPadSpeechInput,isAppleTouchDevice} from './ipad-speech.js?v=23';
@@ -36,7 +36,7 @@ function weakWords(){return words.filter(w=>latest(w)&&latest(w).score<90);}
 const crownSvg='<svg class="crown-icon" viewBox="0 0 24 24" aria-hidden="true"><path d="M3 6l5 4 4-7 4 7 5-4-2 12H5z"/><path d="M5 21h14"/></svg>';
 function crownMark(label,short=''){return `<span class="achievement-crown" role="img" aria-label="${escape(label)}" title="${escape(label)}">${crownSvg}${short?`<span class="crown-label" aria-hidden="true">${short}</span>`:''}</span>`;}
 function allMastered(progress,items){return items.length>0&&items.every(w=>progress.bestScores[w.id]>=90);}
-function stats(){const mastered=words.filter(w=>data.bestScores[w.id]>=90).length;$('#mastered').innerHTML=`${mastered} <em>/ ${words.length}</em>${allMastered(data,words)?crownMark('全単語マスター'):''}`;$('#master-bar').style.width=`${mastered/words.length*100}%`;$('#attempts').innerHTML=`${data.attempts} <em>回</em>`;$('#best').innerHTML=`${data.challengeBest??'—'} <em>/ 100</em>${data.challengeBest===100?crownMark('発音スプリント100点達成'):''}`;$('#weak-count').textContent=weakWords().length;$('#quick-best').innerHTML=`${data.quickBest} <em>語</em>`;renderLessons();}
+function stats(){const time=data.challengeBestElapsedMs;const mastered=words.filter(w=>data.bestScores[w.id]>=90).length;$('#mastered').innerHTML=`${mastered} <em>/ ${words.length}</em>${allMastered(data,words)?crownMark('全単語マスター'):''}`;$('#master-bar').style.width=`${mastered/words.length*100}%`;$('#attempts').innerHTML=`${data.attempts} <em>回</em>`;$('#best').innerHTML=`${data.challengeBest??'—'} <em>/ 100</em>${data.challengeBest===100?crownMark('発音スプリント100点達成'):''}${time==null?'':`<span class="sprint-best-time">${formatSeconds(time)}秒</span>`}`;$('#weak-count').textContent=weakWords().length;$('#quick-best').innerHTML=`${data.quickBest} <em>語</em>`;renderLessons();}
 function showPracticeScore(card,result){const score=card.querySelector('.practice-score');score.classList.remove('score-enter');score.innerHTML=`<strong>${result.score}</strong><span>点</span>`;score.setAttribute('aria-label',`今回の得点 ${result.score}点`);void score.offsetWidth;score.classList.add('score-enter');}
 function historyHtml(w){const h=(data.history[w.id]||[]).slice(-5);return h.length?`<small>直近</small>${h.map(r=>`<span class="score">${r.score}</span>`).join('<span class="arrow">→</span>')}`:'';}
 function filteredWords(){return practiceOrder((mode==='review'?weakWords():words).filter(w=>!part||w.part===part),data,scoreOrder);}
@@ -65,8 +65,9 @@ async function speak(w,rate=1,button=null){
  const done=()=>{button?.classList.remove('speaking');button?.setAttribute('aria-pressed','false');if(speechButton===button)speechButton=null;};
  try{await modelAudio.play(w.audio??w.id,done);}catch(e){done();toast(e.message||'音声を再生できませんでした。');}
 }
-function diagnostic(state){if(state.activity)practiceSignal({phase:state.activity});$('#speech-log').textContent=state.logs.join('\n');$('#ipad-connection').hidden=!ipadMode;$('#ipad-state').textContent=state.connected?'iPad：接続を維持して次の回答を受付':`iPad：${state.label}`;}
-const onBusy=session=>{active=session;updateMicUI(!!session);};
+function diagnostic(state){if(state.activity)practiceSignal({phase:state.activity});else if(state.listening&&currentSignal?.phase==='connecting')practiceSignal({phase:'audio'});$('#speech-log').textContent=state.logs.join('\n');$('#ipad-connection').hidden=!ipadMode;$('#ipad-state').textContent=state.connected?'iPad：接続を維持して次の回答を受付':`iPad：${state.label}`;}
+let currentSignal;
+const onBusy=session=>{active=session;currentSignal=session?{phase:session.listening?'audio':'connecting'}:undefined;updateMicUI(!!session);};
 const nativeSpeechInput=ipadMode?new IPadSpeechInput(Recognition,onBusy,diagnostic):new SpeechInput(Recognition,onBusy,undefined,phase=>practiceSignal({phase}));
 const localSpeechInput=new LocalSpeechInput(onBusy,practiceSignal);
 let speechInput=localSpeechInput,recognitionMode='local',recognitionLoading=false;
@@ -76,12 +77,13 @@ function cancelRecording(){speechInput.cancel();}
 function updateMicUI(on){
  $('#show-speech-status').hidden=recognitionMode==='local';
  if(recognitionMode==='local')$('#ipad-state').textContent=localSpeechInput.ready?(on?'互換モード：音声を端末内で認識中':'互換モード：次の発音を受付'):'互換モード：認識データを準備中';
- $$('.practice-input').forEach(el=>{el.dataset.kind=recognitionMode==='local'?'wave':'activity';el.querySelector('path').setAttribute('d','M0 12 L64 12');el.setAttribute('aria-label','入力待機');});
- if(on)practiceSignal({phase:'connecting'});
+ $$('.practice-input').forEach(el=>{el.dataset.kind=recognitionMode==='local'?'wave':'activity';el.dataset.phase='idle';el.querySelector('path').setAttribute('d','M0 12 L64 12');el.setAttribute('aria-label','入力待機');});
+
  $$('[data-action="record"]').forEach(b=>{b.disabled=on||!recognitionAvailable();b.classList.remove('recording');});
  $$('[data-challenge-record]').forEach(b=>{b.disabled=on||!recognitionAvailable();b.classList.remove('recording');});
  const q=$('#quick-mic');if(q){q.disabled=on||!recognitionAvailable();q.classList.toggle('recording',on);q.innerHTML=on?`${micSvg} 聞いています…`:`${micSvg} マイクを再開`;}
- if(on&&active?.button){active.button.classList.add('recording');active.button.disabled=true;}
+ if(on&&active?.button&&active.button.id!=='quick-mic'){active.button.classList.add('recording');active.button.disabled=true;}
+ renderInputSignal();
 }
 function errorMessage(code){return ({'not-allowed':'マイク・音声認識が許可されていません。ブラウザの設定を確認してください。','service-not-allowed':'音声認識を利用できません。ブラウザの設定を確認してください。','audio-capture':'マイクが見つかりません。他のアプリのマイク使用も確認してください。','network':'音声認識に接続できません。インターネット接続を確認してください。','local-not-ready':'音声認識を準備中です。準備が終わるまでお待ちください。','local-mic-unavailable':'この開き方ではマイクを利用できません。ブラウザの設定、またはSafariの通常タブでお試しください。','local-recognition-failed':'互換モードで認識できませんでした。もう一度お試しください。','no-speech':'音声認識サービスで発話を検出できませんでした。もう一度マイクを押してください。','recognition-timeout':'音声認識から結果が返りませんでした。もう一度マイクを押してください。','no-result':'音声認識が結果を返さず終了しました。もう一度マイクを押してください。','aborted':'音声認識が中断されました。もう一度マイクを押してください。'})[code]||'音声認識が終了しました。もう一度お試しください。';}
 function record(w,{button,onResult,onError=toast}={}){
@@ -90,12 +92,33 @@ function record(w,{button,onResult,onError=toast}={}){
  speechInput.start({button,vocabulary:words,onTranscript:heard=>onResult(transcriptResult(w,heard)),onError:code=>onError(errorMessage(code),code)});
 }
 function recognitionAvailable(){return recognitionMode==='local'?localSpeechInput.ready:!!Recognition;}
-function practiceSignal({kind,phase,level=0,samples}={}){
- const el=active?.button?.closest?.('.word-card')?.querySelector('.practice-input');if(!el)return;
- const measured=kind==='wave',label=measured?(level>.008?'音を検出':'静か'):{connecting:'接続中',audio:'受付中',voice:'発話検出',processing:'認識中'}[phase]||'受付中';
- el.dataset.kind=measured?'wave':'activity';el.dataset.phase=phase||'audio';
- el.querySelector('path').setAttribute('d',measured?waveformPath(samples):'M0 12 L64 12');
- el.title=measured?'マイクから測定した音の波形':'音声認識サービスの状態です。音量の波形ではありません。';el.setAttribute('aria-label',label);
+function challengeInput(){
+ return `<div class="challenge-input" data-phase="idle"><span class="challenge-input-label">入力待機</span><svg viewBox="0 0 64 24" preserveAspectRatio="none" aria-hidden="true"><path d="M0 12 L64 12"/></svg></div>`;
+}
+function practiceSignal(signal){
+ if(!active)return;
+ currentSignal=signal;
+ renderInputSignal();
+}
+function renderInputSignal(){
+ const {kind,phase='idle',level=0,samples}=currentSignal||{};
+ const measured=kind==='wave';
+ const label=measured?(level>.008?'音を検出':'発話待ち'):{idle:'入力待機',connecting:'接続中',audio:'受付中',voice:'発話検出',processing:'認識中'}[phase]||'受付中';
+ const practice=active?.button?.closest?.('.word-card')?.querySelector('.practice-input');
+ const panel=$('#challenge-content').querySelector('.challenge-input');
+ for(const el of [practice,panel]){
+  if(!el)continue;
+  el.dataset.kind=measured?'wave':'activity';
+  el.dataset.phase=measured?'audio':phase;
+  const activityPath=el===panel&&phase==='voice'?'M0 12 L8 12 L13 8 L18 16 L24 4 L30 20 L36 6 L42 16 L48 9 L54 12 L64 12':'M0 12 L64 12';
+  el.querySelector('path').setAttribute('d',measured?waveformPath(samples):activityPath);
+  el.title=measured?'マイクから測定した音の波形':'音声認識サービスの状態です。';
+  if(el===practice)el.setAttribute('aria-label',label);
+  else {
+   const status=el.querySelector('.challenge-input-label');
+   if(status.textContent!==label)status.textContent=label;
+  }
+ }
 }
 function browserContext(){const nav=window.navigator||{},ua=nav.userAgent||'';return !ipadMode?'desktop':nav.standalone||window.matchMedia('(display-mode: standalone)').matches?'standalone':/CriOS/.test(ua)?'chrome':/Version\/[\d.]+.*Safari/.test(ua)?'safari':'embedded';}
 function recognitionNotice(message=''){$('#recognition-notice').hidden=!message;$('#recognition-notice-text').textContent=message;}
@@ -136,14 +159,20 @@ function startChallenge(){if(!micReady||!recognitionAvailable()||active||['runni
 function renderCountdown(){const overlay=document.createElement('div');overlay.id='countdown-overlay';overlay.className='countdown';overlay.innerHTML='<span>GET READY</span><strong id="countdown-number" role="status" aria-live="assertive">3</strong><span>声で、自分のベストを超えよう。</span><button id="cancel-countdown" class="secondary">キャンセル</button>';document.body.append(overlay);$('#cancel-countdown').onclick=()=>{clearRound();challengeSetup('準備ができたら、もう一度スタート。');};}
 function updateCountdown(){if(challenge?.phase!=='countdown')return;const remaining=challenge.countdownEnd-Date.now();if(remaining<=0){clearInterval(tick);$('#countdown-overlay')?.remove();challenge.phase='running';challenge.deadline=Date.now()+60000;challenge.startedAt=new Date().toISOString();if(challenge.type==='quick'){quickBoard();listenQuick();}else challengeBoard();tick=setInterval(updateTimer,100);updateTimer();return;}const n=String(Math.ceil(remaining/1000));if($('#countdown-number').textContent!==n){$('#countdown-number').textContent=n;$('#countdown-number').style.animation='none';void $('#countdown-number').offsetWidth;$('#countdown-number').style.animation='';}}
 function updateTimer(){if(challenge?.phase!=='running')return;const remaining=Math.max(0,challenge.deadline-Date.now());if(!remaining){finishChallenge();return;}const secs=Math.ceil(remaining/1000);$('#time').textContent=secs===60?'1:00':`0:${String(secs).padStart(2,'0')}`;$('#time').classList.toggle('urgent',secs<=10);$('#time-bar').style.width=`${remaining/60000*100}%`;}
-function challengeBoard(){const c=challenge;if(c?.phase!=='running')return;const answered=c.results.filter(Boolean).length;$('#challenge-content').innerHTML=`<section class="challenge-board"><div class="board-header"><div><h1>発音スプリント</h1><p>60秒以内なら再挑戦OK · 100点で自動終了</p></div><div><span class="board-status">${answered} / 10語 回答済み</span><strong id="time" class="board-time">1:00</strong></div></div><div class="time-track"><i id="time-bar"></i></div><div class="challenge-grid">${c.items.map((w,i)=>{const r=c.results[i],last=c.lastResults?.[i]||r;return `<article class="challenge-item ${r?'answered':''} ${r?.score===100?'perfect':''}" data-challenge-item="${i}"><span class="number">${String(i+1).padStart(2,'0')}</span><div><h2 lang="en" class="${w.en.length>18?'long':''}">${escape(w.en)}</h2><p>${escape(w.ja)}</p><div class="heard" aria-live="polite">${last?`今回 ${(last.score/10).toFixed(1)}点：${escape(last.heard)}`:'未回答'}</div></div><div class="item-score" title="この単語の最高点">${r?(r.score/10).toFixed(r.score===100?0:1):'—'}<small> /10</small></div><button class="mic" data-challenge-record="${i}" aria-label="${escape(w.en)}を${r?'もう一度':''}発音する" ${!recognitionAvailable()?'disabled':''}>${micSvg} ${r?'再挑戦':'発音'}</button></article>`;}).join('')}</div><div class="board-footer"><button class="text-button" id="quit-challenge">やめる</button><span id="round-status" role="status">時間内は再挑戦OK。各単語の最高点を合計します。</span><button class="secondary" id="finish-round">結果を見る →</button></div></section>`;
+function challengeBoard(){const c=challenge;if(c?.phase!=='running')return;const answered=c.results.filter(Boolean).length;$('#challenge-content').innerHTML=`<section class="challenge-board"><div class="board-header"><div><h1>発音スプリント</h1><p>60秒以内なら再挑戦OK · 100点で自動終了</p></div><div><span class="board-status">${answered} / 10語 回答済み</span><strong id="time" class="board-time">1:00</strong></div></div><div class="time-track"><i id="time-bar"></i></div>${challengeInput()}<div class="challenge-grid">${c.items.map((w,i)=>{const r=c.results[i],last=c.lastResults?.[i]||r;return `<article class="challenge-item ${r?'answered':''} ${r?.score===100?'perfect':''}" data-challenge-item="${i}"><span class="number">${String(i+1).padStart(2,'0')}</span><div><h2 lang="en" class="${w.en.length>18?'long':''}">${escape(w.en)}</h2><p>${escape(w.ja)}</p><div class="heard" aria-live="polite">${last?`今回 ${(last.score/10).toFixed(1)}点：${escape(last.heard)}`:'未回答'}</div></div><div class="item-score" title="この単語の最高点">${r?(r.score/10).toFixed(r.score===100?0:1):'—'}<small> /10</small></div><button class="mic" data-challenge-record="${i}" aria-label="${escape(w.en)}を${r?'もう一度':''}発音する" ${!recognitionAvailable()?'disabled':''}>${micSvg} ${r?'再挑戦':'発音'}</button></article>`;}).join('')}</div><div class="board-footer"><button class="text-button" id="quit-challenge">やめる</button><span id="round-status" role="status">時間内は再挑戦OK。各単語の最高点を合計します。</span><button class="secondary" id="finish-round">結果を見る →</button></div></section>`;
  $$('[data-challenge-record]').forEach(b=>b.onclick=()=>answerChallenge(Number(b.dataset.challengeRecord),b));$('#finish-round').onclick=()=>{if(answered<10&&!confirm('未回答は0点として終了しますか？'))return;finishChallenge();};$('#quit-challenge').onclick=()=>{if(confirm('チャレンジを終了しますか？ この回の結果は保存されません。')){clearRound();challengeSetup('また挑戦しよう。');}};updateTimer();}
 function answerChallenge(index,button){const c=challenge;if(c?.phase!=='running'||active)return;if(Date.now()>=c.deadline){finishChallenge();return;}const w=c.items[index];$('#round-status').textContent=`「${w.say}」を聞いています…`;stopSpeech();record(w,{button,onResult:r=>{if(challenge!==c||c.phase!=='running')return;if(Date.now()>=c.deadline){finishChallenge();return;}c.lastResults??=[];c.lastResults[index]=r;if(!c.results[index]||r.score>c.results[index].score)c.results[index]=r;addHistory(w,r);if(totalScore(c.results)===100){finishChallenge();celebrate('PERFECT! 100点達成 👑');return;}challengeBoard();if(r.score===100)celebrate();},onError:(message,code)=>{if(challenge!==c||c.phase!=='running')return;if(['not-allowed','service-not-allowed','audio-capture','network','start-failed'].includes(code)){clearRound();micReady=false;challengeSetup(`チャレンジを中止しました。${message}`);}else $('#round-status').textContent=message;}});}
 function celebrate(message='PERFECT! +10 ★'){clearTimeout(celebrationTimer);$('#perfect-celebration')?.remove();const el=document.createElement('div');el.id='perfect-celebration';el.className='celebration';el.setAttribute('aria-hidden','true');el.innerHTML=`<strong>${escape(message)}</strong>${Array.from({length:28},(_,i)=>`<i style="--confetti-left:${i*3.7}%;--confetti-delay:${(i%5)*.06}s;--confetti-color:${['#d7eaa0','#d8b566','#759d7a','#ead8a2'][i%4]}"></i>`).join('')}`;document.body.append(el);celebrationTimer=setTimeout(()=>el.remove(),1800);}
 function certificateBadge(type,score){const rank=certificateRank(type,score);return `<div class="cert-badge cert-badge-${rank.level}" aria-label="称号：${rank.name}"><span class="cert-badge-emblem" aria-hidden="true">${crownSvg}</span><span><small>ACHIEVEMENT RANK</small><strong>${rank.name}</strong></span></div>`;}
-function sprintTime(record){return record.score===100&&Number.isFinite(record.elapsedMs)&&record.elapsedMs>=0&&record.elapsedMs<=60000?(Math.ceil(record.elapsedMs/100)/10).toFixed(1):null;}
+function formatSeconds(ms){return (Math.ceil(ms/100)/10).toFixed(1);}
+function sprintTime(record){return record.score===100&&Number.isFinite(record.elapsedMs)&&record.elapsedMs>=0&&record.elapsedMs<=60000?formatSeconds(record.elapsedMs):null;}
 function certificateDate(iso){return new Intl.DateTimeFormat('ja-JP',{timeZone:'Asia/Tokyo',year:'numeric',month:'2-digit',day:'2-digit',hour:'2-digit',minute:'2-digit',second:'2-digit',hour12:false}).format(new Date(iso));}
-function finishChallenge(){if(challenge?.phase!=='running')return;if(challenge.type==='quick'){finishQuick();return;}cancelRecording();clearInterval(tick);const c=challenge;c.phase='done';clearTimeout(celebrationTimer);$('#perfect-celebration')?.remove();document.body.classList.remove('challenge-running');c.finishedAt=new Date().toISOString();const score=totalScore(c.results),answered=c.results.filter(Boolean).length,previous=data.challengeBest??-1;data.challengeBest=Math.max(score,previous);const elapsedMs=Date.parse(c.finishedAt)-Date.parse(c.startedAt),record={score,date:c.finishedAt};if(score===100&&Number.isFinite(elapsedMs)&&elapsedMs>=0)record.elapsedMs=Math.min(60000,elapsedMs);c.elapsedMs=record.elapsedMs;data.challenges=[...data.challenges,record].slice(-50);persist();stats();
+function finishChallenge(){if(challenge?.phase!=='running')return;if(challenge.type==='quick'){finishQuick();return;}cancelRecording();clearInterval(tick);const c=challenge;c.phase='done';clearTimeout(celebrationTimer);$('#perfect-celebration')?.remove();document.body.classList.remove('challenge-running');c.finishedAt=new Date().toISOString();const score=totalScore(c.results),answered=c.results.filter(Boolean).length,previous=data.challengeBest??-1;data.challengeBest=Math.max(score,previous);const elapsedMs=Date.parse(c.finishedAt)-Date.parse(c.startedAt),record={score,date:c.finishedAt};if(Number.isFinite(elapsedMs)&&elapsedMs>=0){
+ const time=Math.min(60000,elapsedMs);
+ if(score===100)record.elapsedMs=time;
+ if(score>previous)data.challengeBestElapsedMs=time;
+ else if(score===previous)data.challengeBestElapsedMs=Math.min(time,data.challengeBestElapsedMs??Infinity);
+ }else if(score>previous)data.challengeBestElapsedMs=null;c.elapsedMs=record.elapsedMs;data.challenges=[...data.challenges,record].slice(-50);persist();stats();
  $('#challenge-content').innerHTML=`<section class="certificate-wrap"><div class="certificate" id="certificate"><div class="cert-heading"><span>PRONUNCIATION LAB · LESSON ${String(lesson.id).padStart(2,'0')}</span><span class="cert-seal">✦</span><span>60 SECONDS / 10 WORDS</span></div><h1>発音スプリント 認定証</h1><p class="cert-subtitle">CERTIFICATE OF ACHIEVEMENT</p><div class="certificate-identity"><label>名前<input id="cert-name" maxlength="60" value="${escape(data.profile.name)}" placeholder="提出前に名前を入力" aria-label="認定証の名前"></label><label>組・番号<input id="cert-group" readonly value="${escape(data.profile.group)}" placeholder="組・番号を入力" aria-label="認定証の組・番号"></label></div><div class="cert-summary"><div class="cert-score">${score}<small> / 100点</small></div><div class="cert-achievement">${certificateBadge('sprint',score)}${sprintTime({score,elapsedMs:c.elapsedMs})!==null?`<div class="cert-time">TIME <strong>${sprintTime({score,elapsedMs:c.elapsedMs})}</strong> s</div>`:''}<div class="cert-record">BEST ${data.challengeBest} / 100 · ANSWERED ${answered} / 10</div></div></div><div class="cert-details">${c.items.map((w,i)=>{const r=c.results[i];return `<div class="cert-row"><span class="num">${String(i+1).padStart(2,'0')}</span><div><b lang="en">${escape(w.en)}</b><small>${r?`認識：${escape(r.heard)}`:'未回答'}</small></div><span class="points">${r?(r.score/10).toFixed(r.score===100?0:1):'0'}<small> /10</small></span></div>`;}).join('')}</div><p class="cert-date">${certificateDate(c.finishedAt)}</p><p class="cert-foot">Pronunciation Lab / ${lesson.name}</p></div><p class="capture-tip">名前・組番号を確認し、「提出用に大きく表示」で認定証全体をスクリーンショットしてください。</p><div class="cert-actions"><button class="primary" id="capture-certificate">提出用に大きく表示</button><button class="secondary" id="retry">もう一度挑戦</button><button class="secondary" id="review-result">苦手を復習</button><button class="secondary" id="result-history">得点履歴 ↗</button></div></section><button class="restore-view" id="restore-view">通常表示に戻る</button>`;
  $('#result-history').onclick=()=>openChallengeHistory(c.type);
  for(const k of ['name'])$('#cert-'+k).oninput=()=>{data.profile[k]=$('#cert-'+k).value.slice(0,60);persist();updateProfileLabel();};$('#capture-certificate').onclick=()=>{document.body.classList.add('certificate-focus');window.scrollTo({top:0});};$('#restore-view').onclick=()=>document.body.classList.remove('certificate-focus');$('#retry').onclick=()=>{document.body.classList.remove('certificate-focus');challenge=null;challengeSetup();};$('#review-result').onclick=()=>setMode('review');window.scrollTo({top:0});
@@ -159,7 +188,7 @@ function quickBoard(){
  const c=challenge;if(c?.phase!=='running'||c.type!=='quick')return;
  if(c.index>=c.items.length){finishQuick();return;}
  const w=c.items[c.index];
- $('#challenge-content').innerHTML=`<section class="quick-board"><div class="board-header"><div><h1>日→英ワードラッシュ</h1><p>日本語を見て英語で回答 · スキップOK（「skip」と発音でも可）</p></div><strong id="time" class="board-time">1:00</strong></div><div class="time-track"><i id="time-bar"></i></div><div class="quick-score"><b>${c.correct}</b> 語正解 <span>自己ベスト ${data.quickBest}語</span></div><div class="quick-prompt"><span class="eyebrow">${c.index+1} / ${c.items.length} · ${w.pos}</span><h2>${escape(w.ja)}</h2><p>英語で言ってみよう。</p></div><div class="quick-feedback" role="status">${escape(c.feedback||'マイクが聞いています。英語で答えてください。')}</div><div class="quick-controls"><button class="primary" id="quick-mic">${micSvg} マイクを再開</button><button class="secondary" id="quick-skip">スキップ →</button><button class="secondary" id="quick-pause">回答を一時停止</button></div><p class="quick-note" id="round-status" role="status">正解すると自動で次へ。聞き取れない場合は「マイクを再開」。</p><div class="board-footer"><button class="text-button" id="quick-quit">やめる</button><span>教材の表現と一致すると正解 · 最大${c.items.length}語</span><button class="secondary" id="quick-finish">結果を見る →</button></div></section>`;
+ $('#challenge-content').innerHTML=`<section class="quick-board"><div class="board-header"><div><h1>日→英ワードラッシュ</h1><p>日本語を見て英語で回答 · スキップOK（「skip」と発音でも可）</p></div><strong id="time" class="board-time">1:00</strong></div><div class="time-track"><i id="time-bar"></i></div><div class="quick-score"><b>${c.correct}</b> 語正解 <span>自己ベスト ${data.quickBest}語</span></div><div class="quick-prompt"><span class="eyebrow">${c.index+1} / ${c.items.length} · ${w.pos}</span><h2>${escape(w.ja)}</h2>${challengeInput()}<div class="quick-feedback" role="status">${c.heard?`<span>聞き取った英語</span><strong lang="en">${escape(c.heard)}</strong><small>${escape(c.feedback)}</small>`:escape(c.feedback||'英語で言ってみよう。')}</div></div><div class="quick-controls"><button class="primary" id="quick-mic">${micSvg} マイクを再開</button><button class="secondary" id="quick-skip">スキップ →</button><button class="secondary" id="quick-pause">回答を一時停止</button></div><p class="quick-note" id="round-status" role="status">正解すると自動で次へ。聞き取れない場合は「マイクを再開」。</p><div class="board-footer"><button class="text-button" id="quick-quit">やめる</button><span>教材の表現と一致すると正解 · 最大${c.items.length}語</span><button class="secondary" id="quick-finish">結果を見る →</button></div></section>`;
  $('#quick-mic').onclick=()=>{c.endCount=0;listenQuick();};
  $('#quick-skip').onclick=()=>skipQuick(false);
  $('#quick-pause').onclick=()=>{clearTimeout(quickRestart);cancelRecording();$('#round-status').textContent='回答を一時停止中。「マイクを再開」で続けられます。時間は進みます。';};
@@ -175,9 +204,9 @@ function listenQuick(){
   if(challenge!==c||c.phase!=='running')return;if(Date.now()>=c.deadline){finishQuick();return;}
   if(c.index>=c.items.length||Date.now()<(c.blockUntil||0))return;
   if(scoreWord('skip',heard)===100){skipQuick(true);return;}
-  c.endCount=0;const w=c.items[c.index],r=transcriptResult(w,heard),{score}=r;addHistory(w,r);
-  if(score===100){quickVictory(w);c.results[c.index]=r;c.correct++;c.index++;c.feedback=`正解！ ${w.en}`;if(c.index===c.items.length){setTimeout(()=>{if(challenge===c&&c.phase==='running')finishQuick();},1100);return;}}
-  else c.feedback=`認識：${r.heard} ／ もう一度、またはスキップ。`;
+  c.endCount=0;const w=c.items[c.index],r=transcriptResult(w,heard),{score}=r;c.heard=r.heard;addHistory(w,r);
+  if(score===100){quickVictory(w);c.results[c.index]=r;c.correct++;c.index++;c.feedback='正解！';if(c.index===c.items.length){setTimeout(()=>{if(challenge===c&&c.phase==='running')finishQuick();},1100);return;}}
+  else c.feedback='もう一度発音するか、スキップできます。';
   quickBoard();
  },onError:code=>{
   if(challenge!==c||c.phase!=='running')return;
@@ -205,7 +234,7 @@ function skipQuick(fromVoice=false){
  const c=challenge;if(c?.type!=='quick'||c.phase!=='running'||Date.now()<(c.blockUntil||0))return;
  if(Date.now()>=c.deadline){finishQuick();return;}
  clearTimeout(quickRestart);if(!fromVoice)cancelRecording();
- const old=c.items[c.index];c.results[c.index]={score:0,heard:fromVoice?'skip':'',skipped:true};c.index++;c.feedback=`スキップ：${old.en}`;
+ const old=c.items[c.index];c.results[c.index]={score:0,heard:fromVoice?'skip':'',skipped:true};c.index++;c.heard=fromVoice?'skip':'';c.feedback=`スキップ：${old.en}`;
  if(c.index===c.items.length)finishQuick();else{quickBoard();if(!fromVoice)scheduleQuick();}
 }
 function quickVictory(w){
