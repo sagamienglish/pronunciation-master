@@ -189,3 +189,8 @@ body{transition:background-color .2s,color .2s}
 }
 .quick-feedback strong {font-size:clamp(22px,5vw,36px);line-height:1.15;max-width:100%;}
 .quick-feedback small {color:var(--muted);font-size:12px;font-weight:400;}
+
+.mode-tabs .wordlink-tab{display:inline-flex;align-items:center;gap:5px;min-height:44px;padding:9px 3px;color:var(--green);font-size:13px;font-weight:700;text-decoration:none}
+.wordlink-tab:hover{text-decoration:underline}
+@media(max-width:850px){.mode-tabs .wordlink-tab{font-size:11px}}
+@media(max-width:520px){.mode-tabs{flex-wrap:wrap;column-gap:8px;row-gap:0}.mode-tabs .wordlink-tab{flex-basis:100%;border-top:1px solid var(--line)}}
