@@ -268,7 +268,7 @@ function speakSelected() {
   $('feedback').textContent = '「' + tiles[current.index].say + '」';
   $('wave-state').textContent = 'マイク接続中';
   recognition.start({
-    vocabulary: tiles,
+    vocabulary: words,
     capture: mic,
     onTranscript: transcript => complete(current, transcript),
     onError: code => complete(current, '', ({
