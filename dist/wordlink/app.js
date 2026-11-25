@@ -20,7 +20,7 @@ const embedded = window.parent !== window && params.has('embedded');
 if (embedded) document.body.classList.add('embedded');
 let tiles, owners, buttons, selection, path;
 let phase = 'ready', turn = 0, firstTeam = 'blue', matchStart = 0, clock, attempt, mic, matchVersion = 0;
-let countdownClock;
+let countdownClock, scoreClock, scoreReveal;
 const recognitionEnvironment = {};
 const recognition = new LocalSpeechInput(undefined, ({samples}) => {
   if (!attempt) return;
@@ -51,9 +51,17 @@ function placeWords(keepWords = false) {
     label.className = tile.say.length > 15 ? 'word long' : 'word';
     label.lang = 'en';
     label.textContent = tile.say;
-    cell.append(owner, label);
+    const points = document.createElement('span');
+    points.className = 'hex-score';
+    points.setAttribute('aria-hidden', 'true');
+    points.hidden = true;
+    const number = document.createElement('strong');
+    const unit = document.createElement('small');
+    unit.textContent = '点';
+    points.append(number, unit);
+    cell.append(owner, label, points);
     cell.onclick = () => {
-      if (!syncClock() || attempt) return;
+      if (!syncClock() || attempt || scoreReveal) return;
       selection = index;
       speakSelected();
     };
@@ -84,7 +92,7 @@ function render() {
   document.querySelector('.team.blue').dataset.active = live && team === 'blue';
   document.querySelector('.team.orange').dataset.active = live && team === 'orange';
   document.documentElement.style.setProperty('--turn-color', 'var(--' + team + ')');
-  $('board').closest('.board-area').dataset.winner = path.length ? currentTeam() : '';
+  $('board').closest('.board-area').dataset.winner = path.length ? owners[path[0]] : '';
   buttons.forEach((button, index) => {
     const owner = owners[index];
     const pathIndex = path.indexOf(index);
@@ -92,14 +100,18 @@ function render() {
     button.classList.toggle('path', pathIndex >= 0);
     button.style.setProperty('--path-delay', pathIndex * 80 + 'ms');
     button.setAttribute('aria-pressed', selection === index);
-    button.setAttribute('aria-disabled', !live || Boolean(attempt));
+    button.setAttribute('aria-disabled', !live || Boolean(attempt || scoreReveal));
+    const points = button.lastElementChild;
+    const showing = scoreReveal?.index === index;
+    points.hidden = !showing;
+    if (showing) points.firstElementChild.textContent = scoreReveal.score;
     button.firstChild.textContent = marks[owner] || '';
     button.setAttribute('aria-label', tiles[index].say + '、' + (teamLabel[owner] || '空きマス'));
   });
   $('selected-word').textContent = tiles[selection]?.say ?? '—';
   $('meaning').textContent = tiles[selection]?.ja ?? '好きなマスを選ぼう';
   $('action').textContent = phase === 'starting' ? 'マイクを準備中…' : phase === 'countdown' ? 'まもなく開始…' : phase === 'ready' ? '対戦スタート' : phase === 'done' ? '同じ盤面で再戦' : attempt ? '発話を受付中…' : 'もう一度発音する';
-  $('action').disabled = ['starting', 'countdown'].includes(phase) || (live && (selection === null || Boolean(attempt)));
+  $('action').disabled = ['starting', 'countdown'].includes(phase) || (live && (selection === null || Boolean(attempt || scoreReveal)));
   $('action').classList.toggle('secondary', phase === 'done');
   $('action').classList.toggle('primary', phase !== 'done');
   $('new-board').hidden = phase !== 'done';
@@ -248,20 +260,32 @@ function complete(current, transcript, message) {
   }
   const tile = tiles[current.index];
   const score = scoreWord(tile.say, transcript);
-  $('feedback').textContent = ('認識 ' + transcript) + ' · ' + score + '点';
-  if (score === 100) {
-    owners[current.index] = current.team;
-    path = winningPath(owners, current.team);
-    if (path.length) {
-      finish(current.team);
+  const heard = '認識 ' + transcript;
+  const announcement = heard + ' · ' + score + '点';
+  $('feedback').textContent = announcement;
+  scoreReveal = {index:current.index, score};
+  render();
+  const dismiss = () => {
+    scoreReveal = null;
+    if ($('feedback').textContent === announcement) $('feedback').textContent = heard;
+    if (path.length) finish(current.team);
+    else render();
+  };
+  scoreClock = setTimeout(() => {
+    if (score !== 100) {
+      dismiss();
       return;
     }
-  }
-  render();
+    owners[current.index] = current.team;
+    path = winningPath(owners, current.team);
+    if (path.length) clearInterval(clock);
+    render();
+    scoreClock = setTimeout(dismiss, 340);
+  }, 600);
 }
 
 function speakSelected() {
-  if (!syncClock() || selection === null || attempt) return;
+  if (!syncClock() || selection === null || attempt || scoreReveal) return;
   const current = {index:selection, team:currentTeam()};
   attempt = current;
   render();
@@ -305,6 +329,8 @@ function resetMatch() {
   ++matchVersion;
   clearInterval(clock);
   clearInterval(countdownClock);
+  clearTimeout(scoreClock);
+  scoreReveal = null;
   $('countdown').close();
   cancelAttempt();
   closeMic();
