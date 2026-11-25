@@ -14,7 +14,7 @@ const settle=()=>new Promise(resolve=>setImmediate(resolve));
 test('local recognition and true waveform use the same capture, release it on result and accept a next word',async()=>{
  const h=setup(),heard=[];
  for(const word of ['apple','banana']){
-  h.input.start({onTranscript:text=>heard.push(text)});await settle();const rec=h.recognizers.at(-1),p=h.processors.at(-1),samples=new Float32Array([0,.1,-.1,.2,-.2,0]);p.onaudioprocess({inputBuffer:{getChannelData:()=>samples}});assert.ok(h.signals.at(-1).level>0);assert.equal(h.signals.at(-1).samples.length,32);rec.events.result({result:{text:word}});assert.equal(rec.removed,true);assert.equal(h.input.busy,false);
+  h.input.start({onTranscript:text=>heard.push(text)});await settle();const rec=h.recognizers.at(-1),p=h.processors.at(-1),samples=new Float32Array([0,.1,-.1,.2,-.2,0]);assert.equal(rec.grammar,undefined);p.onaudioprocess({inputBuffer:{getChannelData:()=>samples}});assert.ok(h.signals.at(-1).level>0);assert.equal(h.signals.at(-1).samples.length,32);rec.events.result({result:{text:word}});assert.equal(rec.removed,true);assert.equal(h.input.busy,false);
  }
  assert.deepEqual(heard,['apple','banana']);assert.deepEqual(h.counts(),{stopped:2,closed:2});
 });
