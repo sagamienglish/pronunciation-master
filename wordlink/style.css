@@ -44,3 +44,9 @@ dialog{color:var(--ink);background:var(--surface);width:min(530px,calc(100% - 32
 
 .brand[href]{color:inherit;text-decoration:none}
 .brand[href]:focus-visible{outline:3px solid #987933;outline-offset:3px}
+
+.embedded .topbar{display:none}
+.embedded main{padding-inline:0}
+#countdown{text-align:center;background:var(--ink);color:white}
+#countdown-number{display:block;color:var(--lime);font-size:clamp(5rem,20vw,9rem);line-height:1}
+#countdown::backdrop{background:#142f2bdd}
