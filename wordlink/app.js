@@ -250,6 +250,32 @@ function beginCountdown() {
   }, 80);
 }
 
+function playPerfectChime() {
+  const context = mic?.ctx;
+  if (context?.state !== 'running') return;
+  try {
+    const start = context.currentTime;
+    [523.25, 659.25, 783.99, 1046.5].forEach((frequency, index) => {
+      const time = start + index * .075;
+      const end = time + (index === 3 ? .24 : .14);
+      const tone = context.createOscillator();
+      const volume = context.createGain();
+      tone.type = 'triangle';
+      tone.frequency.value = frequency;
+      volume.gain.setValueAtTime(.001, time);
+      volume.gain.linearRampToValueAtTime(.075, time + .014);
+      volume.gain.exponentialRampToValueAtTime(.001, end);
+      tone.connect(volume);
+      volume.connect(context.destination);
+      tone.onended = () => { tone.disconnect(); volume.disconnect(); };
+      tone.start(time);
+      tone.stop(end);
+    });
+  } catch {
+    // Audio playback is optional for completing a move.
+  }
+}
+
 function complete(current, transcript, message) {
   if (attempt !== current || !syncClock() || attempt !== current) return;
   cancelAttempt();
@@ -265,6 +291,7 @@ function complete(current, transcript, message) {
   $('feedback').textContent = announcement;
   scoreReveal = {index:current.index, score};
   render();
+  if (score === 100) playPerfectChime();
   const dismiss = () => {
     scoreReveal = null;
     if ($('feedback').textContent === announcement) $('feedback').textContent = heard;
