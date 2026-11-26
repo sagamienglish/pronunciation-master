@@ -6,7 +6,7 @@
 <meta name="theme-color" content="#f7f8f2">
 <meta name="description" content="英単語を発音して六角マスをつなぐ、2人対戦のデモ。">
 <link rel="icon" href="../icons/favicon-green.png">
-<link rel="stylesheet" href="style.css?v=9">
+<link rel="stylesheet" href="style.css?v=10">
 <title>WORDLINK DUEL｜ワードリンク対戦 | Pronunciation Lab</title>
 </head>
 <body>
@@ -15,7 +15,7 @@
  <section class="game" aria-label="対戦画面">
   <div class="match-header">
    <div class="team blue"><span aria-hidden="true">●</span><div><strong lang="en">Player Blue</strong><small>左端と右端</small></div><b id="blue-count">0</b></div>
-   <div class="time"><span id="turn">20秒交代</span><strong id="seconds">20<small> 秒</small></strong><span id="turn-team">開始前</span></div>
+   <div class="time"><span id="turn">20秒交代</span><strong id="seconds">20<small> 秒</small></strong><span id="turn-team">開始前</span><span class="match-remaining">対戦残り <b id="match-seconds">120</b>秒</span></div>
    <div class="team orange"><span aria-hidden="true">◆</span><div><strong lang="en">Player Orange</strong><small>上端と下端</small></div><b id="orange-count">0</b></div>
   </div>
   <div class="timer-track" aria-hidden="true"><div id="timer-bar"></div></div>
@@ -29,6 +29,7 @@
     <div class="control-head"><span class="eyebrow">発音する単語</span><strong id="selected-word" lang="en">—</strong><span id="meaning">好きなマスを選ぼう</span></div>
     <div class="wave-panel"><div class="wave-label"><span id="wave-state">マイク待機中</span><span aria-hidden="true">MIC</span></div><canvas id="wave" width="600" height="110" aria-label="マイク入力波形"></canvas></div>
     <p id="feedback" role="status">1台で交代しながら遊びます。</p>
+    <label class="match-limit" for="match-limit">対戦時間<select id="match-limit"><option value="60">60秒</option><option value="120" selected>120秒</option><option value="180">180秒</option></select></label>
     <button type="button" class="primary" id="action">対戦スタート</button>
     <button type="button" class="primary new-board" id="new-board" hidden>違う盤面で再戦</button>
     <button type="button" class="secondary" id="end-match" hidden>途中で終了</button>
@@ -39,8 +40,8 @@
  </section>
 </main>
 <dialog id="countdown" aria-label="開始までのカウントダウン"><p>GET READY</p><strong id="countdown-number" role="status" aria-live="assertive">3</strong><p id="countdown-player"></p><button class="secondary" id="cancel-countdown">キャンセル</button></dialog>
-<dialog id="rules"><h2>遊び方</h2><ol><li>Player Blue と Player Orange が20秒ずつ交代。どちらかが両端をつなぐか、「途中で終了」を押すまで続きます。</li><li>どのマスでも選べます。100点で自分の色になります。相手のマスも奪えます。</li><li>青は左右、オレンジは上下を、辺で接する同じ色のマスでつなぐと即勝利。</li><li>途中で終了すると、色を塗ったマスが多い方の勝ちです。同数なら引き分けです。</li><li>再戦では盤面を選べます。どちらを選んでも先攻を入れ替えます。</li></ol><form method="dialog"><button class="primary">閉じる</button></form></dialog>
+<dialog id="rules"><h2>遊び方</h2><ol><li>Player Blue と Player Orange が20秒ずつ交代。対戦時間は開始前に60・120・180秒から選べます。</li><li>どのマスでも選べます。100点で自分の色になります。相手のマスも奪えます。</li><li>青は左右、オレンジは上下を、辺で接する同じ色のマスでつなぐと即勝利。</li><li>時間切れや途中終了では、色を塗ったマスが多い方の勝ちです。同数なら引き分けです。</li><li>再戦では盤面を選べます。どちらを選んでも先攻を入れ替えます。</li></ol><form method="dialog"><button class="primary">閉じる</button></form></dialog>
 <dialog id="result" aria-labelledby="result-title"><div id="confetti" aria-hidden="true"></div><h2 id="result-title"></h2><p id="result-text"></p><form method="dialog" class="result-actions"><button class="secondary">盤面を見る</button><button type="button" class="secondary" id="rematch">同じ盤面で再戦</button><button type="button" class="primary new-board" id="rematch-new">違う盤面で再戦</button></form></dialog>
-<script type="module" src="app.js?v=16"></script>
+<script type="module" src="app.js?v=17"></script>
 </body>
 </html>

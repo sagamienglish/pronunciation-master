@@ -2,7 +2,7 @@ import {LocalSpeechInput,waveformPath} from './local-speech.js?v=30';
 import {practiceOrder} from './practice-order.js?v=18';
 import {pronunciationFor} from './phonetics.js?v=19';
 import {certificateRank} from './awards.js?v=15';
-import {scoreWord,sample,totalScore} from './vocabulary.js';
+import {scoreWord,sample,totalScore} from './vocabulary.js?v=2';
 import {lessons,getLesson,themeColors} from './lessons.js?v=20';
 import {LESSON_KEY,readProgress,writeProgress,emptyProgress} from './progress.js?v=20';
 import {MicMeter} from './audio.js?v=19';
@@ -161,7 +161,7 @@ function showWordlink(view){
  if(current?.dataset.lesson===String(lesson.id))return;
  if(current){current.dispose?.();current.remove();}
  const frame=document.createElement('iframe');
- frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.dataset.lesson=String(lesson.id);frame.src='wordlink/?embedded=1&v=12&lesson='+lesson.id;
+ frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.dataset.lesson=String(lesson.id);frame.src='wordlink/?embedded=1&v=13&lesson='+lesson.id;
  let observer;
  frame.onload=()=>{
   observer?.disconnect();
