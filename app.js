@@ -1,4 +1,4 @@
-import {LocalSpeechInput,waveformPath} from './local-speech.js?v=29';
+import {LocalSpeechInput,waveformPath} from './local-speech.js?v=30';
 import {practiceOrder} from './practice-order.js?v=18';
 import {pronunciationFor} from './phonetics.js?v=19';
 import {certificateRank} from './awards.js?v=15';
@@ -93,7 +93,11 @@ function errorMessage(code){return ({'not-allowed':'マイク・音声認識が�
 function record(w,{button,onResult,onError=toast,onRetry}={}){
  if(speechInput.busy){toast('マイクの終了処理中です。少し待ってから押してください。');return;}
  stopMeter();stopSpeech();
- speechInput.start({button,onBatterRetry:w.say==='batter'?onRetry:undefined,onTranscript:heard=>onResult(transcriptResult(w,heard)),onError:code=>onError(errorMessage(code),code)});
+ const batterPractice=w.say==='batter'&&onRetry;
+ speechInput.start({button,onBatterRetry:batterPractice||undefined,onTranscript:heard=>{
+  const text=batterPractice&&/^butter[.!?]*$/i.test(heard.trim())?'batter':heard;
+  onResult(transcriptResult(w,text));
+ },onError:code=>onError(errorMessage(code),code)});
 }
 function recognitionAvailable(){return recognitionMode==='local'?localSpeechInput.ready:!!Recognition;}
 function challengeInput(){

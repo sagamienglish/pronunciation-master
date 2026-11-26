@@ -65,7 +65,7 @@ export class LocalSpeechInput {
     rec.on('error',()=>{if(!rechecking)fail('local-recognition-failed');});
     rec.on('result',message=>{
      if(!alive()||rechecking)return;s.flushing=false;clearTimeout(s.settle);const text=localTranscript(message.result?.text||'');if(!text)return;
-     if(frames?.length&&text!=='batter'){settleBatter(text);return;}
+     if(frames?.length&&text!=='batter'&&text!=='butter'){settleBatter(text);return;}
      if(!continuous)this.cancel();else watch();onTranscript(text);
     });
     rec.on('partialresult',message=>{
