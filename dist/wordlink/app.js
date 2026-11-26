@@ -14,7 +14,7 @@ const params = new URLSearchParams(window.location.search);
 let savedLesson;
 try { savedLesson = window.localStorage.getItem(LESSON_KEY); } catch {}
 const lesson = getLesson(params.get('lesson') ?? savedLesson) || getLesson(7);
-const words = lesson.words;
+const words = lesson.words.filter(word => word.say !== 'batter');
 $('duel-lesson').textContent = lesson.name;
 const embedded = window.parent !== window && params.has('embedded');
 if (embedded) document.body.classList.add('embedded');
