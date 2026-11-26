@@ -115,6 +115,8 @@ function render() {
   $('action').classList.toggle('secondary', phase === 'done');
   $('action').classList.toggle('primary', phase !== 'done');
   $('new-board').hidden = phase !== 'done';
+  $('end-match').hidden = !live;
+  $('end-match').disabled = Boolean(scoreReveal);
   $('reset').hidden = !live;
 }
 
@@ -336,11 +338,11 @@ function finish(winner) {
   cancelAttempt();
   closeMic();
   render();
-  $('result').style.setProperty('--winner', 'var(--' + winner + ')');
-  $('result-title').textContent = teamLabel[winner] + 'の勝ち！';
+  $('result').style.setProperty('--winner', winner ? 'var(--' + winner + ')' : 'var(--green)');
+  $('result-title').textContent = winner ? teamLabel[winner] + 'の勝ち！' : '引き分け';
   $('result-text').textContent = 'Player Blue ' + count('blue') + 'マス ／ Player Orange ' + count('orange') + 'マス';
   $('feedback').textContent = $('result-title').textContent;
-  $('confetti').replaceChildren(...Array.from({length:32}, (_, index) => {
+  $('confetti').replaceChildren(...Array.from({length:winner ? 32 : 0}, (_, index) => {
     const piece = document.createElement('i');
     piece.style.setProperty('--left', ((index * 19) % 100) + '%');
     piece.style.setProperty('--delay', (index % 8) * 45 + 'ms');
@@ -368,6 +370,11 @@ function resetMatch() {
   $('feedback').textContent = '新しい単語で対戦を始められます。';
   render();
 }
+$('end-match').onclick = () => {
+  if (scoreReveal || !syncClock()) return;
+  const blue = count('blue'), orange = count('orange');
+  finish(blue === orange ? null : blue > orange ? 'blue' : 'orange');
+};
 $('reset').onclick = resetMatch;
 $('cancel-countdown').onclick = resetMatch;
 $('countdown').addEventListener('cancel', resetMatch);
