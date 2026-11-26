@@ -78,7 +78,7 @@ test('leading quiet audio and isolated spikes do not reach recognition before su
 });
 
 test('batter recheck replays the same audio and withholds a score only on disagreement',async()=>{
- for(const [primary,secondary] of [['better','batter'],['butter','butter'],['batter',null]]){
+ for(const [primary,secondary] of [['better','batter'],['rider','butter'],['batter',null],['butter',null]]){
   const h=setup(),heard=[],retry=[];
   h.input.start({onTranscript:text=>heard.push(text),onBatterRetry:text=>retry.push(text)});
   await settle();

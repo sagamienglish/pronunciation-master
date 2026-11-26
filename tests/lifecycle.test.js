@@ -249,3 +249,15 @@ test('failed automatic preparation stays local and can retry without enabling na
   assert.equal(h.nodes.get('#recognition-notice').hidden,true);
  }finally{LocalSpeechInput.prototype.prepare=original;}
 });
+
+test('butter counts as batter only in individual word practice',()=>{
+ const h=harness(),local=h.api.state().localSpeechInput;
+ local.model={};h.api.useRecognitionMode('local');
+ local.start=options=>{options.onTranscript('butter');return true;};
+ const batter=getLesson(8).words.find(w=>w.say==='batter');
+ let practice,standard;
+ h.api.record(batter,{onRetry(){},onResult:r=>practice=r});
+ h.api.record(batter,{onResult:r=>standard=r});
+ assert.equal(practice.score,100);assert.equal(practice.heard,'batter');
+ assert.equal(standard.score,83);assert.equal(standard.heard,'butter');
+});
