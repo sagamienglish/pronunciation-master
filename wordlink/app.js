@@ -19,7 +19,7 @@ const embedded = window.parent !== window && params.has('embedded');
 if (embedded) document.body.classList.add('embedded');
 let tiles, owners, bestScores, buttons, selection, path;
 let phase = 'ready', turn = 0, firstTeam = 'blue', matchStart = 0, matchDuration = 120000, clock, attempt, mic, matchVersion = 0;
-let countdownClock, scoreClock, scoreReveal;
+let countdownClock, scoreClock, scoreReveal, turnBannerTimer;
 const recognitionEnvironment = {};
 const recognition = new LocalSpeechInput(undefined, ({samples, speechStarted}) => {
   if (!attempt) return;
@@ -205,6 +205,29 @@ function showMatchTime(ms) {
   if ($('match-seconds').textContent !== seconds) $('match-seconds').textContent = seconds;
 }
 
+function clearTurnBanner() {
+  clearTimeout(turnBannerTimer);
+  const banner = $('turn-banner');
+  banner.classList.remove('visible');
+  banner.textContent = '';
+}
+
+function showTurnBanner() {
+  clearTurnBanner();
+  const banner = $('turn-banner');
+  const team = currentTeam();
+  banner.dataset.team = team;
+  if (embedded && window.frameElement) {
+    const viewport = window.parent.visualViewport;
+    const center = (viewport?.offsetTop ?? 0) + (viewport?.height ?? window.parent.innerHeight) / 2;
+    const frame = window.frameElement.getBoundingClientRect();
+    banner.style.top = Math.max(36, Math.min(frame.height - 36, center - frame.top)) + 'px';
+  }
+  banner.textContent = teamLabel[team] + 'の番';
+  banner.classList.add('visible');
+  turnBannerTimer = setTimeout(clearTurnBanner, 850);
+}
+
 function syncClock(now = performance.now()) {
   if (phase !== 'playing') return false;
   const remaining = matchStart + matchDuration - now;
@@ -222,6 +245,7 @@ function syncClock(now = performance.now()) {
     selection = null;
     $('feedback').textContent = teamLabel[currentTeam()] + 'に交代。好きなマスを選んでください。';
     render();
+    showTurnBanner();
   }
   showTime(Math.min(remaining, matchStart + (turn + 1) * TURN_MS - now));
   return true;
@@ -285,6 +309,7 @@ function beginCountdown() {
     matchStart = performance.now();
     $('feedback').textContent = teamLabel[firstTeam] + 'から。マスを押して発音してください。';
     render();
+    showTurnBanner();
     clock = setInterval(syncClock, 80);
   }, 80);
 }
@@ -376,6 +401,7 @@ function speakSelected() {
 
 function finish(winner) {
   phase = 'done';
+  clearTurnBanner();
   clearInterval(clock);
   cancelAttempt();
   closeMic();
@@ -398,6 +424,7 @@ function finish(winner) {
 $('action').onclick = () => phase === 'playing' ? speakSelected() : start();
 function resetMatch() {
   ++matchVersion;
+  clearTurnBanner();
   clearInterval(clock);
   clearInterval(countdownClock);
   clearTimeout(scoreClock);
