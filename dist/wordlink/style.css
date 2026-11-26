@@ -63,3 +63,7 @@ dialog{color:var(--ink);background:var(--surface);width:min(530px,calc(100% - 32
 .hex-best span{padding:0 .18em;border-radius:.28em;font-size:.85em;font-weight:800;line-height:1.22;font-variant-numeric:tabular-nums}
 .hex-best [data-team=blue]{background:#d9edf6;color:#124d68}
 .hex-best [data-team=orange]{background:#ffe3cd;color:#7c3519}
+
+.time .match-remaining{margin-top:4px;font-size:.75rem;white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
+.match-limit{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.9rem;font-weight:700;grid-column:1/-1}
+.match-limit select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;min-height:44px;padding:5px 8px}

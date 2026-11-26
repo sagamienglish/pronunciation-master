@@ -1,5 +1,5 @@
 import {LocalSpeechInput} from '../local-speech.js?v=28';
-import {sample, scoreWord} from '../vocabulary.js';
+import {sample, scoreWord} from '../vocabulary.js?v=2';
 import {getLesson} from '../lessons.js?v=20';
 import {LESSON_KEY} from '../progress.js?v=20';
 import {SIZE, TURN_MS, winningPath} from './game.js?v=2';
@@ -18,7 +18,7 @@ const words = lesson.words.filter(word => word.say !== 'batter');
 const embedded = window.parent !== window && params.has('embedded');
 if (embedded) document.body.classList.add('embedded');
 let tiles, owners, bestScores, buttons, selection, path;
-let phase = 'ready', turn = 0, firstTeam = 'blue', matchStart = 0, clock, attempt, mic, matchVersion = 0;
+let phase = 'ready', turn = 0, firstTeam = 'blue', matchStart = 0, matchDuration = 120000, clock, attempt, mic, matchVersion = 0;
 let countdownClock, scoreClock, scoreReveal;
 const recognitionEnvironment = {};
 const recognition = new LocalSpeechInput(undefined, ({samples, speechStarted}) => {
@@ -136,6 +136,7 @@ function render() {
   $('action').classList.toggle('secondary', phase === 'done');
   $('action').classList.toggle('primary', phase !== 'done');
   $('new-board').hidden = phase !== 'done';
+  $('match-limit').disabled = ['starting','countdown','playing'].includes(phase);
   $('end-match').hidden = !live;
   $('end-match').disabled = Boolean(scoreReveal);
   $('reset').hidden = !live;
@@ -199,8 +200,21 @@ function showTime(ms) {
   $('timer-bar').style.width = (100 * Math.max(ms, 0) / TURN_MS) + '%';
 }
 
+function showMatchTime(ms) {
+  const seconds = String(Math.ceil(Math.max(ms, 0) / 1000));
+  if ($('match-seconds').textContent !== seconds) $('match-seconds').textContent = seconds;
+}
+
 function syncClock(now = performance.now()) {
   if (phase !== 'playing') return false;
+  const remaining = matchStart + matchDuration - now;
+  showMatchTime(remaining);
+  if (remaining <= 0) {
+    showTime(0);
+    cancelAttempt();
+    if (!scoreReveal) finishByCount();
+    return false;
+  }
   const next = Math.floor((now - matchStart) / TURN_MS);
   if (next !== turn) {
     cancelAttempt();
@@ -209,7 +223,7 @@ function syncClock(now = performance.now()) {
     $('feedback').textContent = teamLabel[currentTeam()] + 'に交代。好きなマスを選んでください。';
     render();
   }
-  showTime(matchStart + (turn + 1) * TURN_MS - now);
+  showTime(Math.min(remaining, matchStart + (turn + 1) * TURN_MS - now));
   return true;
 }
 
@@ -218,6 +232,8 @@ async function start({differentBoard = false} = {}) {
   const version = ++matchVersion;
   const rematch = phase === 'done';
   const nextStarter = rematch ? opposingTeam(firstTeam) : 'blue';
+  matchDuration = Number($('match-limit').value) * 1000;
+  showMatchTime(matchDuration);
   showTime(TURN_MS);
   phase = 'starting';
   render();
@@ -327,7 +343,7 @@ function complete(current, transcript, message) {
     scoreReveal = null;
     if ($('feedback').textContent === announcement) $('feedback').textContent = heard;
     if (path.length) finish(current.team);
-    else render();
+    else if (syncClock()) render();
   };
   scoreClock = setTimeout(() => {
     owners[current.index] = current.team;
@@ -393,14 +409,18 @@ function resetMatch() {
   turn = 0;
   placeWords();
   showTime(TURN_MS);
+  showMatchTime(Number($('match-limit').value) * 1000);
   $('feedback').textContent = '新しい単語で対戦を始められます。';
   render();
 }
-$('end-match').onclick = () => {
-  if (scoreReveal || !syncClock()) return;
+function finishByCount() {
   const blue = count('blue'), orange = count('orange');
   finish(blue === orange ? null : blue > orange ? 'blue' : 'orange');
+}
+$('end-match').onclick = () => {
+  if (!scoreReveal && syncClock()) finishByCount();
 };
+$('match-limit').onchange = event => showMatchTime(Number(event.target.value) * 1000);
 $('reset').onclick = resetMatch;
 $('cancel-countdown').onclick = resetMatch;
 $('countdown').addEventListener('cancel', resetMatch);
