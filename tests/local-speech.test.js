@@ -76,3 +76,26 @@ test('leading quiet audio and isolated spikes do not reach recognition before su
   assert.equal(rec.frames.at(-1)[0],0);
  }finally{h.input.cancel();}
 });
+
+test('batter recheck replays the same audio and withholds a score only on disagreement',async()=>{
+ for(const [primary,secondary] of [['better','batter'],['butter','butter'],['batter',null]]){
+  const h=setup(),heard=[],retry=[];
+  h.input.start({onTranscript:text=>heard.push(text),onBatterRetry:text=>retry.push(text)});
+  await settle();
+  const send=()=>h.processors[0].onaudioprocess({inputBuffer:{sampleRate:48000,getChannelData:()=>new Float32Array(32).fill(.025)}});
+  send();send();
+  const first=h.recognizers[0];
+  assert.equal(first.grammar,undefined);
+  first.events.result({result:{text:primary}});
+  if(secondary){
+   const second=h.recognizers[1];
+   assert.deepEqual(JSON.parse(second.grammar),['batter','butter','better','[unk]']);
+   assert.deepEqual(second.frames,first.frames);
+   assert.equal(second.flushed,true);
+   second.events.result({result:{text:secondary}});
+  }else assert.equal(h.recognizers.length,1);
+  assert.deepEqual(heard,secondary==='batter'?[]:[primary]);
+  assert.deepEqual(retry,secondary==='batter'?[primary]:[]);
+  assert.equal(h.input.busy,false);
+ }
+});

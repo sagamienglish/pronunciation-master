@@ -22,7 +22,7 @@ export class LocalSpeechInput {
    catch(error){model.terminate();throw error;}
   })();try{await this.loading;}finally{this.loading=null;}
  }
- start({continuous=false,vocabulary=[],onTranscript,onError=()=>{},button,capture}={}){
+ start({continuous=false,vocabulary=[],onTranscript,onError=()=>{},button,capture,onBatterRetry}={}){
   if(this.session)return false;if(!this.model){onError('local-not-ready');return false;}
   const s={continuous,onTranscript,onError,button,capture,ctx:null,stream:null,processor:null,source:null,gain:null,rec:null,watch:null,settle:null,flushing:false};this.session=s;this.onBusy(s);
   const alive=()=>this.session===s;
@@ -42,23 +42,47 @@ export class LocalSpeechInput {
     }
     if(!alive()){if(!capture)s.stream.getTracks().forEach(track=>track.stop());return;}
     const rec=s.rec=new this.model.KaldiRecognizer(s.ctx.sampleRate,vocabulary.length?lessonGrammar(vocabulary):undefined);
-    rec.on('error',()=>fail('local-recognition-failed'));
+    const frames=!continuous&&onBatterRetry?[]:null;
+    let bufferedSamples=0,rechecking=false;
+    const settleBatter=(text)=>{
+     rechecking=true;
+     clearTimeout(s.watch);
+     const complete=retry=>{
+      if(!alive())return;
+      this.cancel();
+      if(retry)onBatterRetry(text);else onTranscript(text);
+     };
+     try{
+      rec.remove();
+      const second=s.rec=new this.model.KaldiRecognizer(s.ctx.sampleRate,JSON.stringify(['batter','butter','better','[unk]']));
+      second.on('error',()=>complete(false));
+      second.on('result',message=>complete(message.result?.text?.trim()==='batter'));
+      s.watch=setTimeout(()=>complete(false),2000);
+      for(const frame of frames)second.acceptWaveformFloat(frame,s.ctx.sampleRate);
+      second.retrieveFinalResult();
+     }catch{complete(false);}
+    };
+    rec.on('error',()=>{if(!rechecking)fail('local-recognition-failed');});
     rec.on('result',message=>{
-     if(!alive())return;s.flushing=false;clearTimeout(s.settle);const text=localTranscript(message.result?.text||'');if(!text)return;
+     if(!alive()||rechecking)return;s.flushing=false;clearTimeout(s.settle);const text=localTranscript(message.result?.text||'');if(!text)return;
+     if(frames?.length&&text!=='batter'){settleBatter(text);return;}
      if(!continuous)this.cancel();else watch();onTranscript(text);
     });
     rec.on('partialresult',message=>{
-     if(!alive()||!message.result?.partial?.trim()||s.flushing)return;
+     if(!alive()||rechecking||!message.result?.partial?.trim()||s.flushing)return;
      clearTimeout(s.settle);s.settle=setTimeout(()=>{if(alive()){s.flushing=true;rec.retrieveFinalResult();}},1000);
     });
     s.source=s.ctx.createMediaStreamSource(s.stream);s.processor=s.ctx.createScriptProcessor(4096,1,1);s.gain=s.ctx.createGain();s.gain.gain.value=0;
     let speechStarted=false, quietFrame, onsetFrame;
     const feed=(samples,rate)=>{
      const data=this.env.copySamples?this.env.copySamples(samples):samples;
+     if(frames&&bufferedSamples+data.length<=s.ctx.sampleRate*4){
+      frames.push(data.slice());bufferedSamples+=data.length;
+     }
      rec.acceptWaveformFloat(data,rate);
     };
     s.processor.onaudioprocess=event=>{
-     if(!alive())return;const samples=event.inputBuffer.getChannelData(0);let energy=0;const trace=[];
+     if(!alive()||rechecking)return;const samples=event.inputBuffer.getChannelData(0);let energy=0;const trace=[];
      for(let i=0;i<samples.length;i++)energy+=samples[i]*samples[i];
      for(let i=0;i<32;i++)trace.push(samples[Math.floor(i*(samples.length-1)/31)]);
      const level=Math.sqrt(energy/samples.length),rate=event.inputBuffer.sampleRate;
