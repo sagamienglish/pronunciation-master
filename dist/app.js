@@ -161,7 +161,7 @@ function showWordlink(view){
  if(current?.dataset.lesson===String(lesson.id))return;
  if(current){current.dispose?.();current.remove();}
  const frame=document.createElement('iframe');
- frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.dataset.lesson=String(lesson.id);frame.src='wordlink/?embedded=1&v=13&lesson='+lesson.id;
+ frame.title='WORDLINK DUEL｜ワードリンク対戦';frame.allow='microphone';frame.dataset.lesson=String(lesson.id);frame.src='wordlink/?embedded=1&v=14&lesson='+lesson.id;
  let observer;
  frame.onload=()=>{
   observer?.disconnect();

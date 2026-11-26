@@ -67,3 +67,9 @@ dialog{color:var(--ink);background:var(--surface);width:min(530px,calc(100% - 32
 .time .match-remaining{margin-top:4px;font-size:.75rem;white-space:nowrap;color:var(--muted);font-variant-numeric:tabular-nums}
 .match-limit{display:flex;align-items:center;justify-content:space-between;gap:8px;font-size:.9rem;font-weight:700;grid-column:1/-1}
 .match-limit select{font:inherit;color:var(--ink);background:var(--surface);border:1px solid var(--line);border-radius:8px;min-height:44px;padding:5px 8px}
+
+#turn-banner{position:fixed;z-index:10;left:50%;top:50%;transform:translate(-50%,-50%);opacity:0;pointer-events:none;max-width:calc(100% - 24px);width:max-content;padding:.6em 1em;border-radius:12px;color:white;font-size:clamp(1.15rem,4vw,2.2rem);font-weight:800;box-shadow:0 6px 24px #0004}
+#turn-banner.visible{opacity:1;animation:turn-banner-in .14s ease-out}
+#turn-banner[data-team=blue]{background:var(--blue)}
+#turn-banner[data-team=orange]{background:var(--orange)}
+@keyframes turn-banner-in{from{opacity:0;transform:translate(-50%,-43%) scale(.94)}to{opacity:1;transform:translate(-50%,-50%) scale(1)}}
