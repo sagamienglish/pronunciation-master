@@ -57,3 +57,9 @@ dialog{color:var(--ink);background:var(--surface);width:min(530px,calc(100% - 32
 .hex-score{position:absolute;top:50%;left:50%;display:inline-flex;align-items:baseline;gap:.12em;transform:translate(-50%,-50%);padding:.14em .22em;border:2px solid #ddba58;border-radius:.28em;background:var(--surface);color:var(--green);font-size:clamp(1rem,3.7vw,2.6rem);font-variant-numeric:tabular-nums;white-space:nowrap;animation:hex-score-enter .2s ease-out}
 .hex-score strong{font-weight:800}.hex-score small{font-size:.42em}
 @keyframes hex-score-enter{from{transform:translate(-50%,-50%) scale(.8);opacity:.25}to{transform:translate(-50%,-50%) scale(1);opacity:1}}
+
+.hex:has(.hex-best:not([hidden])) .word{transform:translateY(-.48em)}
+.hex-best{position:absolute;top:66%;left:0;right:0;display:flex;justify-content:center;gap:2px;pointer-events:none}
+.hex-best span{padding:0 .18em;border-radius:.28em;font-size:.85em;font-weight:800;line-height:1.22;font-variant-numeric:tabular-nums}
+.hex-best [data-team=blue]{background:#d9edf6;color:#124d68}
+.hex-best [data-team=orange]{background:#ffe3cd;color:#7c3519}

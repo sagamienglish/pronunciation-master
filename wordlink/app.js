@@ -18,7 +18,7 @@ const words = lesson.words.filter(word => word.say !== 'batter');
 $('duel-lesson').textContent = lesson.name;
 const embedded = window.parent !== window && params.has('embedded');
 if (embedded) document.body.classList.add('embedded');
-let tiles, owners, buttons, selection, path;
+let tiles, owners, bestScores, buttons, selection, path;
 let phase = 'ready', turn = 0, firstTeam = 'blue', matchStart = 0, clock, attempt, mic, matchVersion = 0;
 let countdownClock, scoreClock, scoreReveal;
 const recognitionEnvironment = {};
@@ -35,6 +35,7 @@ function placeWords(keepWords = false) {
     tiles = next;
   }
   owners = tiles.map(() => '');
+  bestScores = tiles.map(() => ({}));
   path = [];
   selection = null;
   buttons = tiles.map((tile, index) => {
@@ -59,7 +60,16 @@ function placeWords(keepWords = false) {
     const unit = document.createElement('small');
     unit.textContent = '点';
     points.append(number, unit);
-    cell.append(owner, label, points);
+    const best = document.createElement('span');
+    best.className = 'hex-best';
+    best.hidden = true;
+    best.setAttribute('aria-hidden','true');
+    for (const team of ['blue','orange']) {
+      const badge = document.createElement('span');
+      badge.dataset.team = team;
+      best.append(badge);
+    }
+    cell.append(owner, label, best, points);
     cell.onclick = () => {
       if (!syncClock() || attempt || scoreReveal) return;
       selection = index;
@@ -106,7 +116,19 @@ function render() {
     points.hidden = !showing;
     if (showing) points.firstElementChild.textContent = scoreReveal.score;
     button.firstChild.textContent = marks[owner] || '';
-    button.setAttribute('aria-label', tiles[index].say + '、' + (teamLabel[owner] || '空きマス'));
+    const best = points.previousElementSibling;
+    const description = [tiles[index].say, teamLabel[owner] || '空きマス'];
+    for (const badge of best.children) {
+      const team = badge.dataset.team;
+      const value = bestScores[index][team];
+      badge.hidden = value === undefined;
+      if (value !== undefined) {
+        badge.textContent = value;
+        description.push(teamLabel[team] + 'の最高点 ' + value + '点');
+      }
+    }
+    best.hidden = showing || description.length === 2;
+    button.setAttribute('aria-label', description.join('、'));
   });
   $('selected-word').textContent = tiles[selection]?.say ?? '—';
   $('meaning').textContent = tiles[selection]?.ja ?? '好きなマスを選ぼう';
@@ -291,9 +313,17 @@ function complete(current, transcript, message) {
   const heard = '認識 ' + transcript;
   const announcement = heard + ' · ' + score + '点';
   $('feedback').textContent = announcement;
+  if (score < 100) {
+    if (owners[current.index] !== current.team) {
+      const best = bestScores[current.index];
+      best[current.team] = Math.max(best[current.team] ?? 0, score);
+    }
+    render();
+    return;
+  }
   scoreReveal = {index:current.index, score};
   render();
-  if (score === 100) playPerfectChime();
+  playPerfectChime();
   const dismiss = () => {
     scoreReveal = null;
     if ($('feedback').textContent === announcement) $('feedback').textContent = heard;
@@ -301,11 +331,8 @@ function complete(current, transcript, message) {
     else render();
   };
   scoreClock = setTimeout(() => {
-    if (score !== 100) {
-      dismiss();
-      return;
-    }
     owners[current.index] = current.team;
+    bestScores[current.index] = {};
     path = winningPath(owners, current.team);
     if (path.length) clearInterval(clock);
     render();
